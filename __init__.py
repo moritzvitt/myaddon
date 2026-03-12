@@ -5,7 +5,11 @@ from aqt.qt import QAction, QInputDialog
 from aqt.utils import askUser, showInfo
 
 from .operations.cloze import create_cloze
+from .operations.br_cleanup import cleanup_br_runs
 from .operations.duplicates import suspend_duplicates
+from .operations.field_wrap import wrap_field_in_left_div
+from .operations.heisig_unsuspend import unsuspend_heisig_by_jp_lemmas
+from .operations.heisig_links import populate_heisig_links_by_jp_lemmas
 
 
 def _select_deck_name() -> str | None:
@@ -15,6 +19,36 @@ def _select_deck_name() -> str | None:
         return None
     names = sorted(d.name for d in decks)
     name, ok = QInputDialog.getItem(mw, "Select Deck", "Deck:", names, 0, False)
+    if not ok or not name:
+        return None
+    return str(name)
+
+
+def _select_notetype_name() -> str | None:
+    models = mw.col.models
+    if hasattr(models, "all_names_and_ids"):
+        names = sorted(m.name for m in models.all_names_and_ids())
+    else:
+        names = sorted(m["name"] for m in models.all())
+    if not names:
+        showInfo("No note types found.")
+        return None
+    name, ok = QInputDialog.getItem(mw, "Select Note Type", "Note Type:", names, 0, False)
+    if not ok or not name:
+        return None
+    return str(name)
+
+
+def _select_field_name(notetype_name: str) -> str | None:
+    model = mw.col.models.by_name(notetype_name)
+    if not model:
+        showInfo(f"Note type not found: {notetype_name}")
+        return None
+    fields = [f["name"] for f in model.get("flds", [])]
+    if not fields:
+        showInfo(f"No fields found in note type: {notetype_name}")
+        return None
+    name, ok = QInputDialog.getItem(mw, "Select Field", "Field:", fields, 0, False)
     if not ok or not name:
         return None
     return str(name)
@@ -68,6 +102,104 @@ def _run_suspend_duplicates() -> None:
 
 action = QAction("Suspend Duplicates", mw)
 qconnect(action.triggered, _run_suspend_duplicates)
+mw.form.menuTools.addAction(action)
+
+
+def _run_wrap_left_div_for_notetype() -> None:
+    notetype_name = _select_notetype_name()
+    if not notetype_name:
+        return
+    field_name = _select_field_name(notetype_name)
+    if not field_name:
+        return
+    query = f'note:"{notetype_name}"'
+    note_ids = mw.col.find_notes(query)
+    if not note_ids:
+        showInfo(f"No notes found for note type: {notetype_name}")
+        return
+    if not askUser(
+        f"Wrap field '{field_name}' with <div style=\"text-align:left;\"> "
+        f"for {len(note_ids)} notes of '{notetype_name}'?"
+    ):
+        return
+    result = wrap_field_in_left_div(
+        mw.col,
+        note_ids,
+        field_name=field_name,
+        dry_run=False,
+    )
+    showInfo(f"wrap_field_in_left_div finished: {result}")
+
+
+action = QAction("Wrap Field Left Div (Note Type)", mw)
+qconnect(action.triggered, _run_wrap_left_div_for_notetype)
+mw.form.menuTools.addAction(action)
+
+
+def _run_cleanup_br_runs_for_notetype() -> None:
+    notetype_name = _select_notetype_name()
+    if not notetype_name:
+        return
+    field_name = _select_field_name(notetype_name)
+    if not field_name:
+        return
+    query = f'note:"{notetype_name}"'
+    note_ids = mw.col.find_notes(query)
+    if not note_ids:
+        showInfo(f"No notes found for note type: {notetype_name}")
+        return
+    if not askUser(
+        f"Reduce <br> runs to 3 in field '{field_name}' "
+        f"for {len(note_ids)} notes of '{notetype_name}'?"
+    ):
+        return
+    result = cleanup_br_runs(
+        mw.col,
+        note_ids,
+        field_name=field_name,
+        dry_run=False,
+    )
+    showInfo(f"cleanup_br_runs finished: {result}")
+
+
+action = QAction("Cleanup <br> Runs (Note Type)", mw)
+qconnect(action.triggered, _run_cleanup_br_runs_for_notetype)
+mw.form.menuTools.addAction(action)
+
+
+def _run_unsuspend_heisig_by_jp() -> None:
+    if not askUser(
+        "Unsuspend Heisig cards based on JP deck lemmas?\n"
+        "JP deck: JP\n"
+        "Heisig deck: Japanese Heisig::Deck in progress"
+    ):
+        return
+    result = unsuspend_heisig_by_jp_lemmas(mw.col, dry_run=False)
+    showInfo(f"unsuspend_heisig_by_jp_lemmas finished: {result}")
+
+
+action = QAction("Unsuspend Heisig by JP Lemmas", mw)
+qconnect(action.triggered, _run_unsuspend_heisig_by_jp)
+mw.form.menuTools.addAction(action)
+
+
+def _run_heisig_links_by_jp() -> None:
+    if not askUser(
+        "Populate Heisig Link field from JP deck?\n"
+        "Order: lower due first (so you see related JP cards sooner).\n"
+        "JP deck: JP\n"
+        "Heisig deck: Japanese Heisig::Deck in progress\n"
+        "Heisig note type: HeisigKanjiJapanese\n"
+        "Heisig field: Link\n"
+        "JP fields: Lemma, Subtitle"
+    ):
+        return
+    result = populate_heisig_links_by_jp_lemmas(mw.col, dry_run=False)
+    showInfo(f"populate_heisig_links_by_jp_lemmas finished: {result}")
+
+
+action = QAction("Populate Heisig Links from JP", mw)
+qconnect(action.triggered, _run_heisig_links_by_jp)
 mw.form.menuTools.addAction(action)
 
 
