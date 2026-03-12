@@ -1,42 +1,22 @@
-# import the main window object (mw) from aqt
-from aqt import gui_hooks, mw
-# import the "show info" tool from utils.py
-from aqt.utils import showInfo
-# import all of the Qt GUI library
+from __future__ import annotations
+
+from aqt import mw
 from aqt.qt import *  # type: ignore[import]
 from aqt import qconnect
 
+from services.cloze import create_cloze
+from services.suspend_duplicates import suspend_duplicates
+from services.unsuspend_heisig import unsuspend_heisig_cards_depending_on_cards_in_jp_deck
+from services.link_notes import link_notes
 
 
-
-# We're going to add a menu item below. First we want to create a function to
-# be called when the menu item is activated.
-
-def testFunction() -> None:
-    # get the number of cards in the current collection, which is stored in
-    # the main window
-    cardCount = mw.col.card_count()
-    # show a message box
-    showInfo("Card count: %d" % cardCount)
-
-# create a new menu item, "test"
-action = QAction("test", mw)
-# set it to call testFunction when it's clicked
-qconnect(action.triggered, testFunction)
-# and add it to the tools menu
-mw.form.menuTools.addAction(action)
+def _add_menu_action(label: str, handler) -> None:
+    action = QAction(label, mw)
+    qconnect(action.triggered, handler)
+    mw.form.menuTools.addAction(action)
 
 
-def testFunction() -> None:
-    # get the number of cards in the current collection, which is stored in
-    # the main window
-    cardCount = mw.col.card_count()
-    # show a message box
-    showInfo("Card count: %d" % cardCount)
-
-# create a new menu item, "test"
-action = QAction("Format_Cloze", mw)
-# set it to call testFunction when it's clicked
-qconnect(action.triggered, testFunction)
-# and add it to the tools menu
-mw.form.menuTools.addAction(action)
+_add_menu_action("Create Cloze", create_cloze)
+_add_menu_action("Suspend Duplicates", suspend_duplicates)
+_add_menu_action("Unsuspend Heisig", unsuspend_heisig_cards_depending_on_cards_in_jp_deck)
+_add_menu_action("Link Notes", link_notes)
