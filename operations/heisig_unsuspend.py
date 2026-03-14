@@ -5,6 +5,9 @@ from __future__ import annotations
 import re
 from typing import Iterable
 
+from ..utils.config import JP_DECK, HEISIG_DECK, HEISIG_KANJI_FIELD
+from ..utils.tags import HEISIG_UNSUSPEND
+
 KANJI_RE = re.compile(r"[\u4e00-\u9fff]")
 
 
@@ -15,11 +18,11 @@ def _extract_kanji(text: str) -> set[str]:
 def unsuspend_heisig_by_jp_lemmas(
     col,
     *,
-    jp_deck: str = "JP",
+    jp_deck: str = JP_DECK,
     jp_lemma_field: str = "Lemma",
-    heisig_deck: str = "Japanese Heisig::Deck in progress",
-    heisig_kanji_field: str = "Kanji",
-    tag: str = "meta::heisig_unsuspend",
+    heisig_deck: str = HEISIG_DECK,
+    heisig_kanji_field: str = HEISIG_KANJI_FIELD,
+    tag: str = HEISIG_UNSUSPEND,
     dry_run: bool = True,
 ) -> dict[str, int]:
     jp_query = f'deck:"{jp_deck}" (is:review OR is:learn)'

@@ -4,6 +4,26 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
+from typing import Iterable
+
+from ..utils.cloze import strip_cloze
+from ..utils.html import strip_html
+from ..utils.config import (
+    HEISIG_DECK,
+    HEISIG_KANJI_FIELD,
+    HEISIG_LINK_FIELD,
+    HEISIG_NOTE_TYPE,
+    JP_CLOZE_FIELD,
+    JP_DECK,
+    JP_LEMMA_FIELD,
+    JP_LEARNING_NOTETYPE,
+)
+from ..utils.notes import (
+    note_has_active_card_filtered,
+    note_has_flag,
+    note_has_tag,
+    note_min_due_filtered,
+)
 
 KANJI_RE = re.compile(r"[\u4e00-\u9fff]")
 
@@ -15,14 +35,6 @@ def _extract_kanji(text: str) -> set[str]:
 def _sanitize_link_text(text: str) -> str:
     return (text or "").replace("[", "(").replace("]", ")").replace("|", "/").strip()
 
-
-def _note_has_flag(col, nid: int, flag: int) -> bool:
-    note = col.get_note(nid)
-    for cid in note.card_ids():
-        card = col.get_card(cid)
-        if getattr(card, "flag", 0) == flag:
-            return True
-    return False
 
 def _truncate_sentence(text: str, focus_chars: Iterable[str], *, max_len: int = 20) -> str:
     text = (text or "").strip()
@@ -77,48 +89,20 @@ def _note_min_due(col, nid: int) -> int:
     return best
 
 
-def _note_min_due_filtered(col, nid: int, *, ignore_flags: set[int]) -> int:
-    note = col.get_note(nid)
-    best = 10**12
-    for cid in note.card_ids():
-        card = col.get_card(cid)
-        if getattr(card, "queue", None) == -1:
-            continue
-        if getattr(card, "flag", 0) in ignore_flags:
-            continue
-        due = card.due if isinstance(card.due, int) else 10**12
-        if due < best:
-            best = due
-    return best
-
-
-def _note_has_active_card_filtered(col, nid: int, *, ignore_flags: set[int]) -> bool:
-    note = col.get_note(nid)
-    for cid in note.card_ids():
-        card = col.get_card(cid)
-        if getattr(card, "queue", None) == -1:
-            continue
-        if getattr(card, "flag", 0) in ignore_flags:
-            continue
-        if card.queue in (1, 2, 3):
-            return True
-    return False
-
-
 def populate_heisig_links_by_jp_lemmas(
     col,
     *,
-    jp_deck: str = "JP",
-    jp_lemma_field: str = "Lemma",
-    jp_sentence_field: str = "Subtitle",
-    jp_learning_notetype: str = "Moritz Language Reactor",
-    heisig_deck: str = "Japanese Heisig::Deck in progress",
-    heisig_note_type: str = "HeisigKanjiJapanese",
-    heisig_kanji_field: str = "Kanji",
-    heisig_link_field: str = "Link",
+    jp_deck: str = JP_DECK,
+    jp_lemma_field: str = JP_LEMMA_FIELD,
+    jp_sentence_field: str = JP_CLOZE_FIELD,
+    jp_learning_notetype: str = JP_LEARNING_NOTETYPE,
+    heisig_deck: str = HEISIG_DECK,
+    heisig_note_type: str = HEISIG_NOTE_TYPE,
+    heisig_kanji_field: str = HEISIG_KANJI_FIELD,
+    heisig_link_field: str = HEISIG_LINK_FIELD,
     dry_run: bool = True,
 ) -> dict[str, int]:
-    jp_query = f'deck:"{jp_deck}"'
+    jp_query = f'deck:"{jp_deck}" or (tag:meta::retired is:suspended)'
     jp_note_ids = col.find_notes(jp_query)
 
     lemma_by_note: dict[int, str] = {}
@@ -136,7 +120,11 @@ def populate_heisig_links_by_jp_lemmas(
             skipped_missing_fields += 1
             continue
         lemma = (note[jp_lemma_field] or "").strip()
-        sentence = (note[jp_sentence_field] or "").strip() if jp_sentence_field in note else ""
+        if jp_sentence_field in note:
+            sentence_raw = note[jp_sentence_field] or ""
+            sentence = strip_html(strip_cloze(sentence_raw)).strip()
+        else:
+            sentence = ""
         lemma_by_note[nid] = lemma
         sentence_by_note[nid] = sentence
         notetype_by_note[nid] = note.model().get("name", "")
@@ -202,13 +190,16 @@ def populate_heisig_links_by_jp_lemmas(
         learning_block = _build_links_inline(learning_sorted, lemma_by_note)
 
         # Block 2: learning sentences with filters, max 4
-        ignore_flags = {1, 2, 5}
+        ignore_flags = {1, 5}
         for nid2 in sentence_sorted_all:
-            if _note_has_active_card_filtered(col, nid2, ignore_flags=ignore_flags):
+            if note_has_active_card_filtered(col, nid2, ignore_flags=ignore_flags):
+                sentence_ids_learning.add(nid2)
+            elif note_has_tag(col, nid2, "meta::retired"):
+                # Include retired suspended notes in sentence block.
                 sentence_ids_learning.add(nid2)
         sentence_learning_sorted = sorted(
             sentence_ids_learning,
-            key=lambda nid2: _note_min_due_filtered(col, nid2, ignore_flags=ignore_flags),
+            key=lambda nid2: note_min_due_filtered(col, nid2, ignore_flags=ignore_flags),
         )
 
         # Deduplicate by sentence content, keep first occurrence (lowest due).
@@ -252,7 +243,7 @@ def populate_heisig_links_by_jp_lemmas(
                 continue
             if notetype_by_note.get(nid2) == "Moritz Language Reactor Phrase":
                 continue
-            if _note_has_flag(col, nid2, 4):
+            if note_has_flag(col, nid2, 4):
                 continue
             seen_lemmas.add(lemma_text)
             not_learning_unique.append(nid2)

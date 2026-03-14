@@ -1,0 +1,10 @@
+"""Shared config defaults."""
+
+JP_DECK = "JP"
+HEISIG_DECK = "Japanese Heisig::Deck in progress"
+HEISIG_NOTE_TYPE = "HeisigKanjiJapanese"
+HEISIG_KANJI_FIELD = "Kanji"
+HEISIG_LINK_FIELD = "Link"
+JP_LEMMA_FIELD = "Lemma"
+JP_CLOZE_FIELD = "Cloze"
+JP_LEARNING_NOTETYPE = "Moritz Language Reactor"

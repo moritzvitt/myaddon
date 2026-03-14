@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-TAG_MISSING_LEMMA = "meta::duplicates_missing_lemma"
-TAG_FAILED = "meta::duplicates_failed"
+from ..utils.tags import DUPLICATES_FAILED, DUPLICATES_MISSING_LEMMA
 
 
 def _note_has_active_card(col, nid: int) -> bool:
@@ -104,18 +103,18 @@ def suspend_duplicates(
             note = col.get_note(nid)
             if lemma_field not in note:
                 skipped_missing_lemma += 1
-                _tag_note(col, nid, TAG_MISSING_LEMMA, dry_run=dry_run)
+                _tag_note(col, nid, DUPLICATES_MISSING_LEMMA, dry_run=dry_run)
                 tagged_missing_lemma += 1
                 continue
             lemma = (note[lemma_field] or "").strip()
             if not lemma:
                 skipped_missing_lemma += 1
-                _tag_note(col, nid, TAG_MISSING_LEMMA, dry_run=dry_run)
+                _tag_note(col, nid, DUPLICATES_MISSING_LEMMA, dry_run=dry_run)
                 tagged_missing_lemma += 1
                 continue
             notes_by_lemma[lemma].append(nid)
         except Exception:
-            _tag_note(col, nid, TAG_FAILED, dry_run=dry_run)
+            _tag_note(col, nid, DUPLICATES_FAILED, dry_run=dry_run)
             tagged_failed += 1
             continue
 
@@ -132,7 +131,7 @@ def suspend_duplicates(
             keep_nid = min(nids, key=lambda nid: _note_sort_key(col, nid))
             changed = _unsuspend_note_cards(col, keep_nid, dry_run=dry_run)
             if changed == 0:
-                _tag_note(col, keep_nid, TAG_FAILED, dry_run=dry_run)
+                _tag_note(col, keep_nid, DUPLICATES_FAILED, dry_run=dry_run)
                 tagged_failed += 1
                 continue
             unsuspended_cards += changed
@@ -143,7 +142,7 @@ def suspend_duplicates(
                 _suspend_note_cards(col, nid, dry_run=dry_run)
         except Exception:
             for nid in nids:
-                _tag_note(col, nid, TAG_FAILED, dry_run=dry_run)
+                _tag_note(col, nid, DUPLICATES_FAILED, dry_run=dry_run)
             tagged_failed += len(nids)
             continue
 

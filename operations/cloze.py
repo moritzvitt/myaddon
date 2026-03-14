@@ -5,11 +5,21 @@ from __future__ import annotations
 import re
 from typing import Iterable
 
+from ..utils.cloze import longest_substring_match
+from ..utils.tags import (
+    CLOZE_EXISTING,
+    CLOZE_FAILED,
+    CLOZE_INCORRECT_PARSE,
+    CLOZE_NO_STRONG,
+    MULTI_LEMMA,
+    NEW_MULTI_LEMMA,
+    ORIGINAL_MULTI_LEMMA,
+)
+
 STRONG_RE = re.compile(r"<strong>\s*(.*?)\s*</strong>", re.IGNORECASE | re.DOTALL)
 TOKEN_SPLIT_RE = re.compile(r"[^\w\u3040-\u30ff\u4e00-\u9fff]+")
 CJK_CHAR_RE = re.compile(r"[\u4e00-\u9fff]")
 
-TAG_EXISTING_CLOZE = "meta::cloze_existing"
 
 
 def _wrap_strong_cloze(value: str, hint: str) -> str | None:
@@ -23,7 +33,26 @@ def _wrap_strong_cloze(value: str, hint: str) -> str | None:
     return value[: match.start()] + cloze + value[match.end() :]
 
 
+def _wrap_strong_cloze_for_lemma(value: str, lemma: str, hint: str) -> str | None:
+    if not value or not lemma:
+        return None
+    lemma_fold = lemma.casefold()
+    for match in STRONG_RE.finditer(value):
+        inner = match.group(1)
+        if lemma_fold and lemma_fold in (inner or "").casefold():
+            cloze = f"{{{{c1::<strong>{inner}</strong>::{hint}}}}}"
+            return value[: match.start()] + cloze + value[match.end() :]
+    return _wrap_strong_cloze(value, hint)
+
+
 def _wrap_match_cloze(value: str, match_text: str, hint: str) -> str:
+    # If the match lives inside a <strong>...</strong>, wrap the whole strong tag
+    # inside the cloze so only the word is bold.
+    for match in STRONG_RE.finditer(value):
+        inner = match.group(1)
+        if match_text and match_text in inner:
+            cloze = f"{{{{c1::<strong>{inner}</strong>::{hint}}}}}"
+            return value[: match.start()] + cloze + value[match.end() :]
     return value.replace(match_text, f"{{{{c1::{match_text}::{hint}}}}}", 1)
 
 
@@ -82,6 +111,7 @@ def create_cloze(
     tagged_no_strong = 0
     tagged_failed = 0
     tagged_existing = 0
+    created_notes = 0
 
     for nid in note_ids:
         note = col.get_note(nid)
@@ -93,27 +123,94 @@ def create_cloze(
         if "{{c1::" in original:
             skipped_no_change += 1
             if not dry_run:
-                note.add_tag(TAG_EXISTING_CLOZE)
+                note.add_tag(CLOZE_EXISTING)
                 col.update_note(note)
             tagged_existing += 1
             continue
 
         lemma = (note[lemma_field] or "").strip()
         hint = (note[hint_field] or "").strip()
-        updated_value = _wrap_strong_cloze(original, hint)
+        lemmas = [part.strip() for part in lemma.split(",") if part.strip()]
+        if not lemmas:
+            skipped_missing_field += 1
+            continue
+
+        strong_matches = list(STRONG_RE.finditer(original))
+        use_strong = len(strong_matches) == 1
+
+        # For multi-lemma notes, create additional notes for each extra lemma.
+        if len(lemmas) > 1:
+            created_notes += len(lemmas) - 1
+        if len(lemmas) > 1 and not dry_run:
+            card_ids = note.card_ids()
+            deck_id = (
+                col.get_card(card_ids[0]).did if card_ids else col.decks.selected()
+            )
+            for extra_lemma in lemmas[1:]:
+                new_note = col.new_note(note.model())
+                for fname in note.keys():
+                    new_note[fname] = note[fname]
+                new_note.tags = list(note.tags)
+                new_note.add_tag(NEW_MULTI_LEMMA)
+                new_note.add_tag(MULTI_LEMMA)
+                new_note[lemma_field] = extra_lemma
+                extra_updated = (
+                    _wrap_strong_cloze_for_lemma(original, extra_lemma, hint)
+                    if use_strong
+                    else None
+                )
+                extra_no_strong = extra_updated is None
+                if extra_updated is None:
+                    longest = longest_substring_match(original, extra_lemma)
+                    if longest:
+                        extra_updated = _wrap_match_cloze(original, longest, hint)
+                    else:
+                        match_result = _find_match_text(original, extra_lemma)
+                        if match_result:
+                            match_text, match_kind = match_result
+                            extra_updated = _wrap_match_cloze(
+                                original, match_text, hint
+                            )
+                            if match_kind in {"cjk_prefix", "cjk_single"}:
+                                new_note.add_tag(CLOZE_INCORRECT_PARSE)
+                if extra_updated is None or extra_updated == original:
+                    new_note.add_tag(CLOZE_FAILED)
+                else:
+                    new_note[target_field] = extra_updated
+                    if extra_no_strong:
+                        new_note.add_tag(CLOZE_NO_STRONG)
+                col.add_note(new_note, deck_id)
+
+        # Update the original note to only keep the first lemma.
+        lemma = lemmas[0]
+        if not dry_run:
+            if note[lemma_field] != lemma:
+                note[lemma_field] = lemma
+            if len(lemmas) > 1:
+                note.add_tag(ORIGINAL_MULTI_LEMMA)
+                note.add_tag(MULTI_LEMMA)
+
+        updated_value = (
+            _wrap_strong_cloze_for_lemma(original, lemma, hint) if use_strong else None
+        )
         no_strong = updated_value is None
 
         if updated_value is None:
-            match_result = _find_match_text(original, lemma)
-            if match_result:
-                match_text, match_kind = match_result
-                updated_value = _wrap_match_cloze(original, match_text, hint)
-                if match_kind in {"cjk_prefix", "cjk_single"} and not dry_run:
-                    note.add_tag("meta::incorrect_parsing")
+            # Prefer longest possible match of lemma in the cloze field.
+            longest = longest_substring_match(original, lemma)
+            if longest:
+                updated_value = _wrap_match_cloze(original, longest, hint)
+            else:
+                match_result = _find_match_text(original, lemma)
+                if match_result:
+                    match_text, match_kind = match_result
+                    updated_value = _wrap_match_cloze(original, match_text, hint)
+                    if match_kind in {"cjk_prefix", "cjk_single"} and not dry_run:
+                        note.add_tag(CLOZE_INCORRECT_PARSE)
 
         if updated_value is None or updated_value == original:
             if not dry_run:
-                note.add_tag("meta::cloze_failed")
+                note.add_tag(CLOZE_FAILED)
                 col.update_note(note)
             tagged_failed += 1
             continue
@@ -121,7 +218,7 @@ def create_cloze(
         if not dry_run:
             note[target_field] = updated_value
             if no_strong:
-                note.add_tag("meta::cloze_no_strong")
+                note.add_tag(CLOZE_NO_STRONG)
                 tagged_no_strong += 1
             col.update_note(note)
         updated += 1
@@ -135,5 +232,6 @@ def create_cloze(
         "tagged_no_strong": tagged_no_strong,
         "tagged_failed": tagged_failed,
         "tagged_existing": tagged_existing,
+        "created_notes": created_notes,
         "dry_run": int(dry_run),
     }

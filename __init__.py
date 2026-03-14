@@ -2,14 +2,19 @@ from __future__ import annotations
 
 from aqt import gui_hooks, mw, qconnect
 from aqt.qt import QAction, QInputDialog
-from aqt.utils import askUser, showInfo
+import re
+from aqt.utils import askUser, showInfo, tooltip
 
 from .operations.cloze import create_cloze
 from .operations.br_cleanup import cleanup_br_runs
+from .operations.bracket_check import check_square_brackets
 from .operations.duplicates import suspend_duplicates
 from .operations.field_wrap import wrap_field_in_left_div
 from .operations.heisig_unsuspend import unsuspend_heisig_by_jp_lemmas
 from .operations.heisig_links import populate_heisig_links_by_jp_lemmas
+from .operations.no_html_check import tag_no_html
+from .operations.japanese_char_check import tag_contains_japanese
+from .operations.cloze_strip import strip_cloze_to_field
 
 
 def _select_deck_name() -> str | None:
@@ -52,6 +57,34 @@ def _select_field_name(notetype_name: str) -> str | None:
     if not ok or not name:
         return None
     return str(name)
+
+
+def _note_ids_for_notetype(notetype_name: str) -> list[int]:
+    query = f'note:"{notetype_name}"'
+    return list(mw.col.find_notes(query))
+
+
+def _select_notetype_and_field() -> tuple[str, str] | None:
+    notetype_name = _select_notetype_name()
+    if not notetype_name:
+        return None
+    field_name = _select_field_name(notetype_name)
+    if not field_name:
+        return None
+    return notetype_name, field_name
+
+
+def _select_notetype_and_two_fields() -> tuple[str, str, str] | None:
+    notetype_name = _select_notetype_name()
+    if not notetype_name:
+        return None
+    source_field = _select_field_name(notetype_name)
+    if not source_field:
+        return None
+    target_field = _select_field_name(notetype_name)
+    if not target_field:
+        return None
+    return notetype_name, source_field, target_field
 
 
 def _run_create_cloze_for_deck() -> None:
@@ -106,14 +139,11 @@ mw.form.menuTools.addAction(action)
 
 
 def _run_wrap_left_div_for_notetype() -> None:
-    notetype_name = _select_notetype_name()
-    if not notetype_name:
+    selection = _select_notetype_and_field()
+    if not selection:
         return
-    field_name = _select_field_name(notetype_name)
-    if not field_name:
-        return
-    query = f'note:"{notetype_name}"'
-    note_ids = mw.col.find_notes(query)
+    notetype_name, field_name = selection
+    note_ids = _note_ids_for_notetype(notetype_name)
     if not note_ids:
         showInfo(f"No notes found for note type: {notetype_name}")
         return
@@ -137,14 +167,11 @@ mw.form.menuTools.addAction(action)
 
 
 def _run_cleanup_br_runs_for_notetype() -> None:
-    notetype_name = _select_notetype_name()
-    if not notetype_name:
+    selection = _select_notetype_and_field()
+    if not selection:
         return
-    field_name = _select_field_name(notetype_name)
-    if not field_name:
-        return
-    query = f'note:"{notetype_name}"'
-    note_ids = mw.col.find_notes(query)
+    notetype_name, field_name = selection
+    note_ids = _note_ids_for_notetype(notetype_name)
     if not note_ids:
         showInfo(f"No notes found for note type: {notetype_name}")
         return
@@ -164,6 +191,99 @@ def _run_cleanup_br_runs_for_notetype() -> None:
 
 action = QAction("Cleanup <br> Runs (Note Type)", mw)
 qconnect(action.triggered, _run_cleanup_br_runs_for_notetype)
+mw.form.menuTools.addAction(action)
+
+
+def _run_check_brackets_for_notetype() -> None:
+    selection = _select_notetype_and_field()
+    if not selection:
+        return
+    notetype_name, field_name = selection
+    note_ids = _note_ids_for_notetype(notetype_name)
+    if not note_ids:
+        showInfo(f"No notes found for note type: {notetype_name}")
+        return
+    result = check_square_brackets(
+        mw.col,
+        note_ids,
+        field_name=field_name,
+        dry_run=False,
+    )
+    showInfo(f"check_square_brackets finished: {result}")
+
+
+action = QAction("Check Square Brackets (Note Type)", mw)
+qconnect(action.triggered, _run_check_brackets_for_notetype)
+mw.form.menuTools.addAction(action)
+
+
+def _run_no_html_check_for_notetype() -> None:
+    selection = _select_notetype_and_field()
+    if not selection:
+        return
+    notetype_name, field_name = selection
+    note_ids = _note_ids_for_notetype(notetype_name)
+    if not note_ids:
+        showInfo(f"No notes found for note type: {notetype_name}")
+        return
+    result = tag_no_html(
+        mw.col,
+        note_ids,
+        field_name=field_name,
+        dry_run=False,
+    )
+    showInfo(f"tag_no_html finished: {result}")
+
+
+action = QAction("Tag No HTML (Note Type)", mw)
+qconnect(action.triggered, _run_no_html_check_for_notetype)
+mw.form.menuTools.addAction(action)
+
+
+def _run_japanese_char_check_for_notetype() -> None:
+    selection = _select_notetype_and_field()
+    if not selection:
+        return
+    notetype_name, field_name = selection
+    note_ids = _note_ids_for_notetype(notetype_name)
+    if not note_ids:
+        showInfo(f"No notes found for note type: {notetype_name}")
+        return
+    result = tag_contains_japanese(
+        mw.col,
+        note_ids,
+        field_name=field_name,
+        dry_run=False,
+    )
+    showInfo(f"tag_contains_japanese finished: {result}")
+
+
+action = QAction("Tag Japanese Characters (Note Type)", mw)
+qconnect(action.triggered, _run_japanese_char_check_for_notetype)
+mw.form.menuTools.addAction(action)
+
+
+def _run_strip_cloze_for_notetype() -> None:
+    selection = _select_notetype_and_two_fields()
+    if not selection:
+        return
+    notetype_name, source_field, target_field = selection
+    note_ids = _note_ids_for_notetype(notetype_name)
+    if not note_ids:
+        showInfo(f"No notes found for note type: {notetype_name}")
+        return
+    result = strip_cloze_to_field(
+        mw.col,
+        note_ids,
+        source_field=source_field,
+        target_field=target_field,
+        dry_run=False,
+    )
+    showInfo(f"strip_cloze_to_field finished: {result}")
+
+
+action = QAction("Strip Cloze to Field (Note Type)", mw)
+qconnect(action.triggered, _run_strip_cloze_for_notetype)
 mw.form.menuTools.addAction(action)
 
 
@@ -191,7 +311,7 @@ def _run_heisig_links_by_jp() -> None:
         "Heisig deck: Japanese Heisig::Deck in progress\n"
         "Heisig note type: HeisigKanjiJapanese\n"
         "Heisig field: Link\n"
-        "JP fields: Lemma, Subtitle"
+        "JP fields: Lemma, Cloze"
     ):
         return
     result = populate_heisig_links_by_jp_lemmas(mw.col, dry_run=False)
@@ -238,3 +358,59 @@ if hasattr(gui_hooks, "browser_menus"):
     gui_hooks.browser_menus.append(_add_browser_menu)
 elif hasattr(gui_hooks, "browser_will_show"):
     gui_hooks.browser_will_show.append(_add_browser_menu)
+
+
+LIMIT_RE = re.compile(r"limit:(\d+)", re.IGNORECASE)
+
+
+def _apply_card_limit(context) -> None:
+    # Only apply to cards mode.
+    if context.browser.table.is_notes_mode():
+        return
+
+    search = context.search or ""
+    match = LIMIT_RE.search(search)
+    if not match:
+        return
+    limit = int(match.group(1))
+    search = LIMIT_RE.sub("", search).strip()
+    search = re.sub(r"\s{2,}", " ", search)
+    if not search:
+        search = "*"
+
+    if limit <= 0:
+        context.search = search
+        return
+
+    # Order by lowest due (queue position) and limit results.
+    card_ids = list(context.browser.col.find_cards(search, order="c.due asc"))
+    context.ids = card_ids[:limit]
+    context.search = search
+
+
+gui_hooks.browser_will_search.append(_apply_card_limit)
+
+
+def _auto_wrap_left_div_on_startup() -> None:
+    notetype_name = "Moritz Language Reactor"
+    query = f'note:"{notetype_name}"'
+    note_ids = mw.col.find_notes(query)
+    if not note_ids:
+        return
+    # Always run on both fields.
+    wrap_field_in_left_div(
+        mw.col,
+        note_ids,
+        field_name="Notes",
+        dry_run=False,
+    )
+    wrap_field_in_left_div(
+        mw.col,
+        note_ids,
+        field_name="Grammar",
+        dry_run=False,
+    )
+    tooltip("applied left-div to Notes & Grammar")
+
+
+gui_hooks.profile_did_open.append(lambda: _auto_wrap_left_div_on_startup())
