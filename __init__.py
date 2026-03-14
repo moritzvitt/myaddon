@@ -45,7 +45,9 @@ def _select_notetype_name() -> str | None:
     return str(name)
 
 
-def _select_field_name(notetype_name: str) -> str | None:
+def _select_field_name(
+    notetype_name: str, *, title: str = "Select Field", label: str = "Field:"
+) -> str | None:
     model = mw.col.models.by_name(notetype_name)
     if not model:
         showInfo(f"Note type not found: {notetype_name}")
@@ -54,7 +56,7 @@ def _select_field_name(notetype_name: str) -> str | None:
     if not fields:
         showInfo(f"No fields found in note type: {notetype_name}")
         return None
-    name, ok = QInputDialog.getItem(mw, "Select Field", "Field:", fields, 0, False)
+    name, ok = QInputDialog.getItem(mw, title, label, fields, 0, False)
     if not ok or not name:
         return None
     return str(name)
@@ -79,10 +81,14 @@ def _select_notetype_and_two_fields() -> tuple[str, str, str] | None:
     notetype_name = _select_notetype_name()
     if not notetype_name:
         return None
-    source_field = _select_field_name(notetype_name)
+    source_field = _select_field_name(
+        notetype_name, title="Select Source Field", label="Source Field:"
+    )
     if not source_field:
         return None
-    target_field = _select_field_name(notetype_name)
+    target_field = _select_field_name(
+        notetype_name, title="Select Target Field", label="Target Field:"
+    )
     if not target_field:
         return None
     return notetype_name, source_field, target_field
@@ -101,6 +107,21 @@ def _select_dry_run(default: bool = False) -> bool | None:
         mw,
         "Dry Run",
         "dry_run:",
+        ["false", "true"],
+        1 if default_label == "true" else 0,
+        False,
+    )
+    if not ok or not label:
+        return None
+    return str(label).lower() == "true"
+
+
+def _select_overwrite_target(default: bool = False) -> bool | None:
+    default_label = "true" if default else "false"
+    label, ok = QInputDialog.getItem(
+        mw,
+        "Overwrite Target Field",
+        "Overwrite target field:",
         ["false", "true"],
         1 if default_label == "true" else 0,
         False,
@@ -370,6 +391,9 @@ def _run_strip_cloze_for_notetype() -> None:
     dry_run = _select_dry_run(False)
     if dry_run is None:
         return
+    overwrite_target = _select_overwrite_target(False)
+    if overwrite_target is None:
+        return
     if not _confirm_query_count(
         f"Strip cloze from '{source_field}' to '{target_field}'", query, len(note_ids)
     ):
@@ -381,6 +405,7 @@ def _run_strip_cloze_for_notetype() -> None:
         note_ids,
         source_field=source_field,
         target_field=target_field,
+        overwrite_target=overwrite_target,
         dry_run=dry_run,
     )
     showInfo(f"strip_cloze_to_field finished: {result}")

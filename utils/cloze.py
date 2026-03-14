@@ -5,7 +5,9 @@ from __future__ import annotations
 import re
 from typing import Iterable
 
-CLOZE_RE = re.compile(r"\{\{c\d+::(.*?)(?:::[^}]*)?\}\}", re.IGNORECASE)
+CLOZE_RE = re.compile(
+    r"\{\{c\d+::(.*?)(?:::(.*?))?(?:::)??\}\}", re.IGNORECASE | re.DOTALL
+)
 
 
 def strip_cloze(text: str) -> str:

@@ -13,12 +13,14 @@ def strip_cloze_to_field(
     *,
     source_field: str,
     target_field: str,
+    overwrite_target: bool = False,
     dry_run: bool = True,
 ) -> dict[str, int]:
     updated = 0
     skipped_missing_field = 0
     skipped_target_not_empty = 0
     skipped_empty_source = 0
+    overwritten_target = 0
 
     for nid in note_ids:
         note = col.get_note(nid)
@@ -30,7 +32,7 @@ def strip_cloze_to_field(
             skipped_empty_source += 1
             continue
         target = note[target_field] or ""
-        if target.strip():
+        if target.strip() and not overwrite_target:
             skipped_target_not_empty += 1
             continue
 
@@ -38,6 +40,8 @@ def strip_cloze_to_field(
         if not dry_run:
             note[target_field] = cleaned
             col.update_note(note)
+        if target.strip() and overwrite_target:
+            overwritten_target += 1
         updated += 1
 
     return {
@@ -45,5 +49,7 @@ def strip_cloze_to_field(
         "skipped_missing_field": skipped_missing_field,
         "skipped_target_not_empty": skipped_target_not_empty,
         "skipped_empty_source": skipped_empty_source,
+        "overwritten_target": overwritten_target,
+        "overwrite_target": int(overwrite_target),
         "dry_run": int(dry_run),
     }

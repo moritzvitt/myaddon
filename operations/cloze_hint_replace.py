@@ -22,8 +22,6 @@ def replace_cloze_hints(
     skipped_missing_field = 0
     skipped_empty_hint = 0
     skipped_no_change = 0
-    skipped_hint_contains_cloze = 0
-    skipped_hint_equals_cloze = 0
 
     for nid in note_ids:
         note = col.get_note(nid)
@@ -31,16 +29,9 @@ def replace_cloze_hints(
             skipped_missing_field += 1
             continue
         cloze_value = note[cloze_field] or ""
-        raw_hint = note[hint_field] or ""
-        hint_value = strip_cloze(raw_hint).strip()
+        hint_value = note[hint_field] or ""
         if not hint_value:
             skipped_empty_hint += 1
-            continue
-        if CLOZE_C1_RE.search(raw_hint):
-            skipped_hint_contains_cloze += 1
-            continue
-        if hint_value == cloze_value:
-            skipped_hint_equals_cloze += 1
             continue
 
         updated_value, count = _replace_hints(cloze_value, hint_value)
@@ -57,8 +48,6 @@ def replace_cloze_hints(
         "skipped_missing_field": skipped_missing_field,
         "skipped_empty_hint": skipped_empty_hint,
         "skipped_no_change": skipped_no_change,
-        "skipped_hint_contains_cloze": skipped_hint_contains_cloze,
-        "skipped_hint_equals_cloze": skipped_hint_equals_cloze,
         "dry_run": int(dry_run),
     }
 
