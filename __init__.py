@@ -15,6 +15,7 @@ from .operations.heisig_links import populate_heisig_links_by_jp_lemmas
 from .operations.no_html_check import tag_no_html
 from .operations.japanese_char_check import tag_contains_japanese
 from .operations.cloze_strip import strip_cloze_to_field
+from .operations.cloze_hint_replace import replace_cloze_hints
 
 
 def _select_deck_name() -> str | None:
@@ -387,6 +388,43 @@ def _run_strip_cloze_for_notetype() -> None:
 
 action = QAction("Strip Cloze to Field (Note Type)", mw)
 qconnect(action.triggered, _run_strip_cloze_for_notetype)
+mw.form.menuTools.addAction(action)
+
+
+def _run_replace_cloze_hints_for_notetype() -> None:
+    selection = _select_notetype_and_field()
+    if not selection:
+        return
+    notetype_name, hint_field = selection
+    default_query = f'note:"{notetype_name}" deck:migaku tag:meta::multi_lemma'
+    query = _select_query(default_query)
+    if query is None:
+        return
+    note_ids = list(mw.col.find_notes(query))
+    if not note_ids:
+        showInfo(f"No notes found for query: {query}")
+        return
+    dry_run = _select_dry_run(False)
+    if dry_run is None:
+        return
+    if not _confirm_query_count(
+        f"Replace cloze hints from '{hint_field}'", query, len(note_ids)
+    ):
+        return
+    if not dry_run:
+        _maybe_backup()
+    result = replace_cloze_hints(
+        mw.col,
+        note_ids,
+        cloze_field="Cloze",
+        hint_field=hint_field,
+        dry_run=dry_run,
+    )
+    showInfo(f"replace_cloze_hints finished: {result}")
+
+
+action = QAction("Replace Cloze Hints (Note Type)", mw)
+qconnect(action.triggered, _run_replace_cloze_hints_for_notetype)
 mw.form.menuTools.addAction(action)
 
 

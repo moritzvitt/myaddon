@@ -137,6 +137,7 @@ def create_cloze(
 
         strong_matches = list(STRONG_RE.finditer(original))
         use_strong = len(strong_matches) == 1
+        allow_no_strong_tag = len(strong_matches) == 0
 
         # For multi-lemma notes, create additional notes for each extra lemma.
         has_multi_tag = MULTI_LEMMA in note.tags
@@ -179,7 +180,8 @@ def create_cloze(
                 else:
                     new_note[target_field] = extra_updated
                     if extra_no_strong:
-                        new_note.add_tag(CLOZE_NO_STRONG)
+                        if allow_no_strong_tag:
+                            new_note.add_tag(CLOZE_NO_STRONG)
                 col.add_note(new_note, deck_id)
 
         # Update the original note to only keep the first lemma.
@@ -219,11 +221,12 @@ def create_cloze(
         if not dry_run:
             note[target_field] = updated_value
             if no_strong:
-                note.add_tag(CLOZE_NO_STRONG)
+                if allow_no_strong_tag:
+                    note.add_tag(CLOZE_NO_STRONG)
                 tagged_no_strong += 1
             col.update_note(note)
         updated += 1
-        if no_strong:
+        if no_strong and allow_no_strong_tag:
             tagged_no_strong += 1
 
     return {
