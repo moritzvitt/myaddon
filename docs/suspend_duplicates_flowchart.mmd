@@ -1,0 +1,39 @@
+
+flowchart TD
+  A([Start suspend_duplicates]) --> B[Find note_ids via query]
+  B --> C[Init notes_by_lemma, counters]
+  C --> D[s23]
+  D --> E[Try: Load note]
+  E --> F[s24]
+  F --|s30|--> F1["_tag_note(..., DUPLICATES_MISSING_LEMMA)"]
+  F1 --> F2[skipped_missing_lemma++, tagged_missing_lemma++]
+  F2 --> D
+  F --|s31|--> G["lemma = note[lemma_field].strip()"]
+  G --> H[s25]
+  H --|s32|--> H1["_tag_note(..., DUPLICATES_MISSING_LEMMA)"]
+  H1 --> H2[skipped_missing_lemma++, tagged_missing_lemma++]
+  H2 --> D
+  H --|s33|--> I["notes_by_lemma[lemma].append(note_id)"]
+  I --> D
+  E -.-> X["Exception → _tag_note(..., DUPLICATES_FAILED)\ntagged_failed++"]
+  X --> D
+  D --> J[duplicate_groups = lemmas with >1 note]
+  J --> K[s26]
+  K --> L[Try block]
+  L --> M[s27]
+  M --|s34|--> M1[groups_with_active++]
+  M1 --> K
+  M --|s35|--> N["keep_nid = min(..., key=_note_sort_key)"]
+  N --> O["changed = _unsuspend_note_cards(col, keep_nid)"]
+  O --> P[s28]
+  P --|s36|--> P1["_tag_note(..., DUPLICATES_FAILED)\ntagged_failed++"]
+  P1 --> K
+  P --|s37|--> Q[unsuspended_cards += changed\nunsuspended_notes++]
+  Q --> R[s29]
+  R --> S["_suspend_note_cards(col, nid)"]
+  S --> R
+  R --> K
+  L -.-> T["Exception → tag all nids DUPLICATES_FAILED\ntagged_failed += len(nids)"]
+  T --> K
+  K --> U[Return stats dict]
+  U --> V([End])
