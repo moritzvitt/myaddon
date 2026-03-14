@@ -87,6 +87,45 @@ def _select_notetype_and_two_fields() -> tuple[str, str, str] | None:
     return notetype_name, source_field, target_field
 
 
+def _select_query(default_query: str) -> str | None:
+    query, ok = QInputDialog.getText(mw, "Query", "Search Query:", text=default_query)
+    if not ok:
+        return None
+    return str(query).strip() or default_query
+
+
+def _select_dry_run(default: bool = False) -> bool | None:
+    default_label = "true" if default else "false"
+    label, ok = QInputDialog.getItem(
+        mw,
+        "Dry Run",
+        "dry_run:",
+        ["false", "true"],
+        1 if default_label == "true" else 0,
+        False,
+    )
+    if not ok or not label:
+        return None
+    return str(label).lower() == "true"
+
+
+def _confirm_query_count(action_label: str, query: str, count: int) -> bool:
+    return askUser(f"{action_label}\nQuery: {query}\nNotes: {count}")
+
+
+def _maybe_backup() -> None:
+    if not askUser("Create a backup before running this action?"):
+        return
+    try:
+        mw.col.create_backup(
+            backup_folder=mw.pm.backupFolder(),
+            force=True,
+            wait_for_completion=True,
+        )
+    except Exception as exc:
+        showInfo(f"Backup failed: {exc}")
+
+
 def _run_create_cloze_for_deck() -> None:
     deck_name = _select_deck_name()
     if not deck_name:
@@ -101,6 +140,7 @@ def _run_create_cloze_for_deck() -> None:
     if not askUser(f"Run cloze update on {len(note_ids)} notes in '{deck_name}'?"):
         return
 
+    _maybe_backup()
     result = create_cloze(mw.col, note_ids, dry_run=False)
     showInfo(f"create_cloze finished: {result}")
 
@@ -129,6 +169,7 @@ def _run_suspend_duplicates() -> None:
     )
     if not askUser(f"Run duplicate suspension on {query}?"):
         return
+    _maybe_backup()
     result = suspend_duplicates(mw.col, query=query, dry_run=False)
     showInfo(f"suspend_duplicates finished: {result}")
 
@@ -143,20 +184,27 @@ def _run_wrap_left_div_for_notetype() -> None:
     if not selection:
         return
     notetype_name, field_name = selection
-    note_ids = _note_ids_for_notetype(notetype_name)
+    query = _select_query(f'note:"{notetype_name}"')
+    if query is None:
+        return
+    note_ids = list(mw.col.find_notes(query))
     if not note_ids:
         showInfo(f"No notes found for note type: {notetype_name}")
         return
-    if not askUser(
-        f"Wrap field '{field_name}' with <div style=\"text-align:left;\"> "
-        f"for {len(note_ids)} notes of '{notetype_name}'?"
+    dry_run = _select_dry_run(False)
+    if dry_run is None:
+        return
+    if not _confirm_query_count(
+        f"Wrap left-div for '{field_name}'", query, len(note_ids)
     ):
         return
+    if not dry_run:
+        _maybe_backup()
     result = wrap_field_in_left_div(
         mw.col,
         note_ids,
         field_name=field_name,
-        dry_run=False,
+        dry_run=dry_run,
     )
     showInfo(f"wrap_field_in_left_div finished: {result}")
 
@@ -171,20 +219,27 @@ def _run_cleanup_br_runs_for_notetype() -> None:
     if not selection:
         return
     notetype_name, field_name = selection
-    note_ids = _note_ids_for_notetype(notetype_name)
+    query = _select_query(f'note:"{notetype_name}"')
+    if query is None:
+        return
+    note_ids = list(mw.col.find_notes(query))
     if not note_ids:
         showInfo(f"No notes found for note type: {notetype_name}")
         return
-    if not askUser(
-        f"Reduce <br> runs to 3 in field '{field_name}' "
-        f"for {len(note_ids)} notes of '{notetype_name}'?"
+    dry_run = _select_dry_run(False)
+    if dry_run is None:
+        return
+    if not _confirm_query_count(
+        f"Cleanup <br> runs for '{field_name}'", query, len(note_ids)
     ):
         return
+    if not dry_run:
+        _maybe_backup()
     result = cleanup_br_runs(
         mw.col,
         note_ids,
         field_name=field_name,
-        dry_run=False,
+        dry_run=dry_run,
     )
     showInfo(f"cleanup_br_runs finished: {result}")
 
@@ -199,15 +254,27 @@ def _run_check_brackets_for_notetype() -> None:
     if not selection:
         return
     notetype_name, field_name = selection
-    note_ids = _note_ids_for_notetype(notetype_name)
+    query = _select_query(f'note:"{notetype_name}"')
+    if query is None:
+        return
+    note_ids = list(mw.col.find_notes(query))
     if not note_ids:
         showInfo(f"No notes found for note type: {notetype_name}")
         return
+    dry_run = _select_dry_run(False)
+    if dry_run is None:
+        return
+    if not _confirm_query_count(
+        f"Check square brackets in '{field_name}'", query, len(note_ids)
+    ):
+        return
+    if not dry_run:
+        _maybe_backup()
     result = check_square_brackets(
         mw.col,
         note_ids,
         field_name=field_name,
-        dry_run=False,
+        dry_run=dry_run,
     )
     showInfo(f"check_square_brackets finished: {result}")
 
@@ -222,15 +289,27 @@ def _run_no_html_check_for_notetype() -> None:
     if not selection:
         return
     notetype_name, field_name = selection
-    note_ids = _note_ids_for_notetype(notetype_name)
+    query = _select_query(f'note:"{notetype_name}"')
+    if query is None:
+        return
+    note_ids = list(mw.col.find_notes(query))
     if not note_ids:
         showInfo(f"No notes found for note type: {notetype_name}")
         return
+    dry_run = _select_dry_run(False)
+    if dry_run is None:
+        return
+    if not _confirm_query_count(
+        f"Tag no HTML in '{field_name}'", query, len(note_ids)
+    ):
+        return
+    if not dry_run:
+        _maybe_backup()
     result = tag_no_html(
         mw.col,
         note_ids,
         field_name=field_name,
-        dry_run=False,
+        dry_run=dry_run,
     )
     showInfo(f"tag_no_html finished: {result}")
 
@@ -245,15 +324,27 @@ def _run_japanese_char_check_for_notetype() -> None:
     if not selection:
         return
     notetype_name, field_name = selection
-    note_ids = _note_ids_for_notetype(notetype_name)
+    query = _select_query(f'note:"{notetype_name}"')
+    if query is None:
+        return
+    note_ids = list(mw.col.find_notes(query))
     if not note_ids:
         showInfo(f"No notes found for note type: {notetype_name}")
         return
+    dry_run = _select_dry_run(False)
+    if dry_run is None:
+        return
+    if not _confirm_query_count(
+        f"Tag Japanese characters in '{field_name}'", query, len(note_ids)
+    ):
+        return
+    if not dry_run:
+        _maybe_backup()
     result = tag_contains_japanese(
         mw.col,
         note_ids,
         field_name=field_name,
-        dry_run=False,
+        dry_run=dry_run,
     )
     showInfo(f"tag_contains_japanese finished: {result}")
 
@@ -268,16 +359,28 @@ def _run_strip_cloze_for_notetype() -> None:
     if not selection:
         return
     notetype_name, source_field, target_field = selection
-    note_ids = _note_ids_for_notetype(notetype_name)
+    query = _select_query(f'note:"{notetype_name}"')
+    if query is None:
+        return
+    note_ids = list(mw.col.find_notes(query))
     if not note_ids:
         showInfo(f"No notes found for note type: {notetype_name}")
         return
+    dry_run = _select_dry_run(False)
+    if dry_run is None:
+        return
+    if not _confirm_query_count(
+        f"Strip cloze from '{source_field}' to '{target_field}'", query, len(note_ids)
+    ):
+        return
+    if not dry_run:
+        _maybe_backup()
     result = strip_cloze_to_field(
         mw.col,
         note_ids,
         source_field=source_field,
         target_field=target_field,
-        dry_run=False,
+        dry_run=dry_run,
     )
     showInfo(f"strip_cloze_to_field finished: {result}")
 
@@ -294,6 +397,7 @@ def _run_unsuspend_heisig_by_jp() -> None:
         "Heisig deck: Japanese Heisig::Deck in progress"
     ):
         return
+    _maybe_backup()
     result = unsuspend_heisig_by_jp_lemmas(mw.col, dry_run=False)
     showInfo(f"unsuspend_heisig_by_jp_lemmas finished: {result}")
 
@@ -314,6 +418,7 @@ def _run_heisig_links_by_jp() -> None:
         "JP fields: Lemma, Cloze"
     ):
         return
+    _maybe_backup()
     result = populate_heisig_links_by_jp_lemmas(mw.col, dry_run=False)
     showInfo(f"populate_heisig_links_by_jp_lemmas finished: {result}")
 

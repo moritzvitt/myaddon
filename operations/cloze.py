@@ -139,9 +139,10 @@ def create_cloze(
         use_strong = len(strong_matches) == 1
 
         # For multi-lemma notes, create additional notes for each extra lemma.
-        if len(lemmas) > 1:
+        has_multi_tag = MULTI_LEMMA in note.tags
+        if len(lemmas) > 1 and not has_multi_tag:
             created_notes += len(lemmas) - 1
-        if len(lemmas) > 1 and not dry_run:
+        if len(lemmas) > 1 and not has_multi_tag and not dry_run:
             card_ids = note.card_ids()
             deck_id = (
                 col.get_card(card_ids[0]).did if card_ids else col.decks.selected()
