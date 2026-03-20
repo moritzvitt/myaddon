@@ -26,6 +26,8 @@ from .operations.no_html_check import tag_no_html
 from .operations.japanese_char_check import tag_contains_japanese
 from .operations.cloze_strip import strip_cloze_to_field
 from .operations.cloze_hint_replace import replace_cloze_hints
+from .operations.field_overwrite import overwrite_field_from_field
+from .utils.notes import remove_tag_from_notes, tag_notes
 
 
 def _select_deck_name() -> str | None:
@@ -165,6 +167,14 @@ def _get_addon_config() -> dict[str, str]:
     config = mw.addonManager.getConfig(__name__) or {}
     if "deck" not in config or not str(config.get("deck") or "").strip():
         config["deck"] = "migaku"
+    if "preview_query" not in config or not str(config.get("preview_query") or "").strip():
+        config[
+            "preview_query"
+        ] = "deck:JP -is:suspended -is:buried is:new -flag:3 -flag:2 -flag:4 -flag:1 -flag:6 -tag:marked"
+    if "preview_tag" not in config or not str(config.get("preview_tag") or "").strip():
+        config["preview_tag"] = "preview"
+    if "preview_limit" not in config:
+        config["preview_limit"] = 200
     return config
 
 
@@ -183,6 +193,18 @@ def _run_open_config() -> None:
     deck_edit.setText(str(config.get("deck", "migaku")))
     layout.addRow("Deck:", deck_edit)
 
+    preview_query_edit = QLineEdit()
+    preview_query_edit.setText(str(config.get("preview_query", "")))
+    layout.addRow("Preview Query:", preview_query_edit)
+
+    preview_tag_edit = QLineEdit()
+    preview_tag_edit.setText(str(config.get("preview_tag", "")))
+    layout.addRow("Preview Tag:", preview_tag_edit)
+
+    preview_limit_edit = QLineEdit()
+    preview_limit_edit.setText(str(config.get("preview_limit", 200)))
+    layout.addRow("Preview Limit:", preview_limit_edit)
+
     buttons = QDialogButtonBox(
         QDialogButtonBox.StandardButton.Ok
         | QDialogButtonBox.StandardButton.Cancel
@@ -194,6 +216,12 @@ def _run_open_config() -> None:
     if dialog.exec() != QDialog.DialogCode.Accepted:
         return
     config["deck"] = deck_edit.text().strip() or "migaku"
+    config["preview_query"] = preview_query_edit.text().strip()
+    config["preview_tag"] = preview_tag_edit.text().strip()
+    try:
+        config["preview_limit"] = max(0, int(preview_limit_edit.text().strip() or "0"))
+    except ValueError:
+        config["preview_limit"] = 200
     _save_addon_config(config)
     showInfo("Configuration saved.")
 
@@ -986,9 +1014,63 @@ def _run_create_cloze_for_browser(browser) -> None:
     showInfo(f"create_cloze finished: {result}")
 
 
+def _run_overwrite_field_for_browser(browser) -> None:
+    note_ids = _browser_selected_note_ids(browser)
+    if not note_ids:
+        showInfo("No notes selected.")
+        return
+    options = _select_run_options(
+        title="Overwrite Field From Field (Selected)",
+        need_notetype=True,
+        field_labels=["Source Field", "Target Field"],
+        show_dry_run=True,
+        show_backup=True,
+        default_dry_run=False,
+        default_backup=False,
+    )
+    if not options:
+        return
+    notetype_name = str(options["notetype"])
+    source_field = str(options["fields"][0])
+    target_field = str(options["fields"][1])
+    matched_ids: list[int] = []
+    for nid in note_ids:
+        note = mw.col.get_note(nid)
+        model = note.model()
+        if model and model.get("name") == notetype_name:
+            matched_ids.append(nid)
+    if not matched_ids:
+        showInfo(
+            f"No selected notes match note type '{notetype_name}'. "
+            f"Selected: {len(note_ids)}"
+        )
+        return
+    dry_run = bool(options.get("dry_run"))
+    if not dry_run and options.get("backup"):
+        _maybe_backup(force=True)
+    result = overwrite_field_from_field(
+        mw.col,
+        matched_ids,
+        source_field=source_field,
+        target_field=target_field,
+        dry_run=dry_run,
+    )
+    if len(matched_ids) != len(note_ids):
+        showInfo(
+            f"Applied to {len(matched_ids)} of {len(note_ids)} selected notes "
+            f"(note type '{notetype_name}').\n"
+            f"overwrite_field_from_field finished: {result}"
+        )
+        return
+    showInfo(f"overwrite_field_from_field finished: {result}")
+
+
 def _add_browser_menu(browser) -> None:
     action = QAction("Apply Cloze Pattern (Selected)", browser)
     qconnect(action.triggered, lambda: _run_create_cloze_for_browser(browser))
+    browser.form.menuEdit.addAction(action)
+    action = QAction("Overwrite Field From Field (Selected)", browser)
+    qconnect(action.triggered, lambda: _run_overwrite_field_for_browser(browser))
     browser.form.menuEdit.addAction(action)
 
 
@@ -1052,3 +1134,29 @@ def _auto_wrap_left_div_on_startup() -> None:
 
 
 gui_hooks.profile_did_open.append(lambda: _auto_wrap_left_div_on_startup())
+
+
+def _auto_tag_preview_on_startup() -> None:
+    query = (
+        "deck:JP -is:suspended -is:buried is:new "
+        "-flag:3 -flag:2 -flag:4 -flag:1 -flag:6 -tag:marked"
+    )
+    tag = "preview"
+    limit = 200
+
+    note_ids_with_tag = mw.col.find_notes(f"tag:{tag}")
+    if note_ids_with_tag:
+        remove_tag_from_notes(mw.col, note_ids_with_tag, tag)
+
+    card_ids = list(mw.col.find_cards(query, order="c.due asc"))
+    if not card_ids:
+        return
+    note_ids = {mw.col.get_card(cid).nid for cid in card_ids[:limit]}
+    if not note_ids:
+        return
+    added = tag_notes(mw.col, note_ids, tag)
+    if added:
+        tooltip("Added preview tag", period=2000)
+
+
+gui_hooks.profile_did_open.append(lambda: _auto_tag_preview_on_startup())
