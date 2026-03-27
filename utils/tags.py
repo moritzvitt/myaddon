@@ -11,6 +11,8 @@ DUPLICATES_FAILED = "meta::duplicates_failed"
 CONTAINS_FURIGANA = "meta::contains_furigana"
 CONTAINS_JAPANESE = "meta::contains_japanese_characters"
 NO_HTML = "meta::no_html"
+CARD_TYPE_WORD = "meta::word_card"
+CARD_TYPE_SENTENCE = "meta::sentence_card"
 
 HEISIG_UNSUSPEND = "meta::heisig_unsuspend"
 

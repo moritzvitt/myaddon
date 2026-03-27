@@ -24,6 +24,7 @@ from .operations.heisig_unsuspend import unsuspend_heisig_by_jp_lemmas
 from .operations.heisig_links import populate_heisig_links_by_jp_lemmas
 from .operations.no_html_check import tag_no_html
 from .operations.japanese_char_check import tag_contains_japanese
+from .operations.card_type_check import classify_card_type
 from .operations.cloze_strip import strip_cloze_to_field
 from .operations.cloze_hint_replace import replace_cloze_hints
 from .operations.field_overwrite import overwrite_field_from_field
@@ -808,6 +809,47 @@ def _run_japanese_char_check_for_notetype() -> None:
 
 action = QAction("Tag Japanese Characters (Note Type)", mw)
 qconnect(action.triggered, _run_japanese_char_check_for_notetype)
+mw.form.menuTools.addAction(action)
+
+
+def _run_card_type_check_for_notetype() -> None:
+    options = _select_run_options(
+        title="Tag Word vs Sentence Cards (Note Type)",
+        need_notetype=True,
+        field_labels=["Cloze Field", "Lemma Field"],
+        show_query=True,
+        show_deck_filter=True,
+        show_tag_filter=True,
+        show_dry_run=True,
+        show_backup=True,
+        default_dry_run=False,
+        default_backup=False,
+        default_fields=["Cloze", "Lemma"],
+    )
+    if not options:
+        return
+    cloze_field = str(options["fields"][0])
+    lemma_field = str(options["fields"][1])
+    query = str(options["query"] or "")
+    note_ids = list(mw.col.find_notes(query))
+    if not note_ids:
+        showInfo(f"No notes found for query: {query}")
+        return
+    dry_run = bool(options.get("dry_run"))
+    if not dry_run and options.get("backup"):
+        _maybe_backup(force=True)
+    result = classify_card_type(
+        mw.col,
+        note_ids,
+        cloze_field=cloze_field,
+        lemma_field=lemma_field,
+        dry_run=dry_run,
+    )
+    showInfo(f"classify_card_type finished: {result}")
+
+
+action = QAction("Tag Word vs Sentence Cards (Note Type)", mw)
+qconnect(action.triggered, _run_card_type_check_for_notetype)
 mw.form.menuTools.addAction(action)
 
 
