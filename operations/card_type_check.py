@@ -1,4 +1,4 @@
-"""Classify notes as word cards or sentence cards based on cloze content."""
+"""Classify notes as word cards or sentence cards based on cloze hints."""
 
 from __future__ import annotations
 
@@ -11,70 +11,50 @@ from ..utils.notes import remove_tag_from_notes
 from ..utils.tags import CARD_TYPE_SENTENCE, CARD_TYPE_WORD
 
 WHITESPACE_RE = re.compile(r"\s+")
-PUNCT_RE = re.compile(r"[^\w\u3040-\u30ff\u4e00-\u9fff]+")
-KANA_RE = re.compile(r"[\u3040-\u30ff]")
-SENTENCE_HINT_RE = re.compile(r"[\s.,;:!?\"'()[\]{}<>/\\|]|[。！？、…]")
+SENTENCE_PUNCT_RE = re.compile(r"[.!?;:(){}\[\]<>]|[。！？；：]")
+COMMA_SPLIT_RE = re.compile(r"\s*,\s*")
 
 
-def _extract_hidden_cloze_text(text: str) -> str:
-    parts: list[str] = []
+def _extract_cloze_hints(text: str) -> list[str]:
+    hints: list[str] = []
     for match in CLOZE_RE.finditer(text or ""):
-        inner = strip_html(match.group(1) or "")
-        inner = strip_left_div_wrapper(inner).strip()
-        if inner:
-            parts.append(inner)
-    return " ".join(parts).strip()
+        hint = strip_html(match.group(2) or "")
+        hint = strip_left_div_wrapper(hint).strip()
+        if hint:
+            hints.append(hint)
+    return hints
 
 
 def _normalize_text(text: str) -> str:
     stripped = strip_left_div_wrapper(strip_html(text or ""))
-    stripped = WHITESPACE_RE.sub("", stripped)
+    stripped = WHITESPACE_RE.sub(" ", stripped).strip()
     return stripped.casefold()
 
 
-def _kanji_core(text: str) -> str:
-    normalized = _normalize_text(text)
-    return KANA_RE.sub("", normalized)
-
-
-def _shared_edge_length(left: str, right: str) -> int:
-    size = min(len(left), len(right))
-    count = 0
-    for index in range(size):
-        if left[index] != right[index]:
-            break
-        count += 1
-    return count
-
-
-def _looks_like_word_form(hidden_text: str, lemma: str) -> bool:
-    hidden = _normalize_text(hidden_text)
-    lemma_norm = _normalize_text(lemma)
-    if not hidden or not lemma_norm:
+def _looks_like_word_hint(hint: str) -> bool:
+    normalized = _normalize_text(hint)
+    if not normalized:
         return False
-    if hidden == lemma_norm:
-        return True
-
-    hidden_compact = PUNCT_RE.sub("", hidden)
-    lemma_compact = PUNCT_RE.sub("", lemma_norm)
-    if not hidden_compact or not lemma_compact:
+    if "\n" in hint or "<br" in hint.lower():
         return False
-    if hidden_compact == lemma_compact:
-        return True
+    if SENTENCE_PUNCT_RE.search(normalized):
+        return False
 
-    lemma_kanji = _kanji_core(lemma)
-    hidden_kanji = _kanji_core(hidden_text)
-    if lemma_kanji and lemma_kanji == hidden_kanji:
-        return True
+    parts = [part.strip() for part in COMMA_SPLIT_RE.split(normalized) if part.strip()]
+    if not parts:
+        return False
 
-    # Kana-only fallback for simple inflections like たべる -> たべた.
-    if not lemma_kanji and not hidden_kanji:
-        shared_prefix = _shared_edge_length(lemma_compact, hidden_compact)
-        shared_suffix = _shared_edge_length(lemma_compact[::-1], hidden_compact[::-1])
-        if max(shared_prefix, shared_suffix) >= max(2, min(len(lemma_compact), len(hidden_compact)) - 1):
-            return True
+    total_words = 0
+    for part in parts:
+        words = [word for word in part.split(" ") if word]
+        word_count = len(words) if words else 1
+        total_words += word_count
+        if word_count > 4:
+            return False
+        if len(part) > 40:
+            return False
 
-    return False
+    return total_words <= 8
 
 
 def classify_card_type(
@@ -82,7 +62,6 @@ def classify_card_type(
     note_ids: Iterable[int],
     *,
     cloze_field: str,
-    lemma_field: str,
     dry_run: bool = True,
 ) -> dict[str, int]:
     checked = 0
@@ -91,6 +70,7 @@ def classify_card_type(
     skipped_missing_field = 0
     skipped_empty = 0
     skipped_no_cloze = 0
+    skipped_no_hint = 0
     removed_word_tag = 0
     removed_sentence_tag = 0
     added_word_tag = 0
@@ -102,29 +82,26 @@ def classify_card_type(
 
     for nid in note_ids:
         note = col.get_note(nid)
-        if cloze_field not in note or lemma_field not in note:
+        if cloze_field not in note:
             skipped_missing_field += 1
             continue
 
         cloze_value = note[cloze_field] or ""
-        lemma = (note[lemma_field] or "").strip()
-        if not cloze_value.strip() or not lemma:
+        if not cloze_value.strip():
             skipped_empty += 1
             continue
 
-        hidden_text = _extract_hidden_cloze_text(cloze_value)
-        if not hidden_text:
+        if not list(CLOZE_RE.finditer(cloze_value)):
             skipped_no_cloze += 1
             continue
 
-        checked += 1
-        is_word = _looks_like_word_form(hidden_text, lemma)
+        hints = _extract_cloze_hints(cloze_value)
+        if not hints:
+            skipped_no_hint += 1
+            continue
 
-        if not is_word and not SENTENCE_HINT_RE.search(hidden_text):
-            hidden_kanji = _kanji_core(hidden_text)
-            lemma_kanji = _kanji_core(lemma)
-            if hidden_kanji and lemma_kanji and hidden_kanji == lemma_kanji:
-                is_word = True
+        checked += 1
+        is_word = all(_looks_like_word_hint(hint) for hint in hints)
 
         if is_word:
             word_cards += 1
@@ -150,5 +127,6 @@ def classify_card_type(
         "skipped_missing_field": skipped_missing_field,
         "skipped_empty": skipped_empty,
         "skipped_no_cloze": skipped_no_cloze,
+        "skipped_no_hint": skipped_no_hint,
         "dry_run": int(dry_run),
     }

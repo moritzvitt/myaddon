@@ -816,7 +816,7 @@ def _run_card_type_check_for_notetype() -> None:
     options = _select_run_options(
         title="Tag Word vs Sentence Cards (Note Type)",
         need_notetype=True,
-        field_labels=["Cloze Field", "Lemma Field"],
+        field_labels=["Cloze Field"],
         show_query=True,
         show_deck_filter=True,
         show_tag_filter=True,
@@ -824,12 +824,11 @@ def _run_card_type_check_for_notetype() -> None:
         show_backup=True,
         default_dry_run=False,
         default_backup=False,
-        default_fields=["Cloze", "Lemma"],
+        default_fields=["Cloze"],
     )
     if not options:
         return
     cloze_field = str(options["fields"][0])
-    lemma_field = str(options["fields"][1])
     query = str(options["query"] or "")
     note_ids = list(mw.col.find_notes(query))
     if not note_ids:
@@ -842,7 +841,6 @@ def _run_card_type_check_for_notetype() -> None:
         mw.col,
         note_ids,
         cloze_field=cloze_field,
-        lemma_field=lemma_field,
         dry_run=dry_run,
     )
     showInfo(f"classify_card_type finished: {result}")
