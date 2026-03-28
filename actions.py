@@ -1,27 +1,21 @@
 from __future__ import annotations
 
-from aqt import mw, qconnect
-from aqt.qt import QAction
+from aqt import mw
 from aqt.utils import askUser, showInfo
 
 from .dialogs import open_config_dialog, select_run_options
-from .operations.br_cleanup import cleanup_br_runs
-from .operations.bracket_check import check_square_brackets
-from .operations.card_type_check import classify_card_type
 from .operations.cloze import create_cloze
 from .operations.cloze_hint_replace import replace_cloze_hints
 from .operations.cloze_strip import strip_cloze_to_field
-from .operations.field_overwrite import overwrite_field_from_field
-from .operations.field_wrap import wrap_field_in_left_div
-from .operations.heisig_links import populate_heisig_links_by_jp_lemmas
-from .operations.heisig_unsuspend import unsuspend_heisig_by_jp_lemmas
-from .operations.japanese_char_check import tag_contains_japanese
-from .operations.no_html_check import tag_no_html
-
-try:
-    from .operations.duplicates import suspend_duplicates
-except ImportError:
-    suspend_duplicates = None
+from .operations.hidden.br_cleanup import cleanup_br_runs
+from .operations.hidden.bracket_check import check_square_brackets
+from .operations.hidden.card_type_check import classify_card_type
+from .operations.hidden.field_overwrite import overwrite_field_from_field
+from .operations.hidden.field_wrap import wrap_field_in_left_div
+from .operations.hidden.heisig_links import populate_heisig_links_by_jp_lemmas
+from .operations.hidden.heisig_unsuspend import unsuspend_heisig_by_jp_lemmas
+from .operations.hidden.japanese_char_check import tag_contains_japanese
+from .operations.hidden.no_html_check import tag_no_html
 
 
 def maybe_backup(force: bool | None = None) -> None:
@@ -86,40 +80,6 @@ def run_create_cloze_for_deck() -> None:
 
 def run_open_config() -> None:
     open_config_dialog()
-
-
-def run_suspend_duplicates() -> None:
-    if suspend_duplicates is None:
-        showInfo(
-            "Suspend Duplicates is unavailable because operations/duplicates.py is missing."
-        )
-        return
-    options = select_run_options(
-        title="Suspend Duplicates",
-        need_deck=True,
-        show_backup=True,
-        default_backup=False,
-    )
-    if not options:
-        return
-    deck_name = str(options["deck"])
-    exclude_suspended_flags = " ".join(
-        f"-(is:suspended flag:{flag})" for flag in (1, 2, 4, 5, 6, 7)
-    )
-    deck_query = f'deck:"{deck_name}" or deck:"{deck_name}::*"'
-    query = f"({deck_query}) -tag:meta::retired {exclude_suspended_flags}"
-    note_count = len(mw.col.find_notes(query))
-    card_count = len(mw.col.find_cards(query))
-    showInfo(
-        "Duplicate query:\n"
-        f"{query}\n"
-        f"Notes: {note_count}\n"
-        f"Cards: {card_count}"
-    )
-    if options.get("backup"):
-        maybe_backup(force=True)
-    result = suspend_duplicates(mw.col, query=query, dry_run=False)
-    showInfo(f"suspend_duplicates finished: {result}")
 
 
 def _run_notetype_field_action(
@@ -449,26 +409,29 @@ def add_browser_menu(browser) -> None:
     action = QAction("Apply Cloze Pattern (Selected)", browser)
     qconnect(action.triggered, lambda: run_create_cloze_for_browser(browser))
     browser.form.menuEdit.addAction(action)
+    
 
-    action = QAction("Overwrite Field From Field (Selected)", browser)
-    qconnect(action.triggered, lambda: run_overwrite_field_for_browser(browser))
-    browser.form.menuEdit.addAction(action)
-
-
-TOOLS_MENU_ACTIONS: list[tuple[str, object]] = [
+MAIN_TOOLS_MENU_ACTIONS: list[tuple[str, object]] = [
     ("Create Cloze (Query)", run_create_cloze_for_deck),
+    ("Replace Cloze Hints (Note Type)", run_replace_cloze_hints_for_notetype),
+    ("Strip Cloze to Field (Note Type)", run_strip_cloze_for_notetype),
     ("Misc Formatting Configuration", run_open_config),
+]
+
+ADVANCED_TOOLS_MENU_ACTIONS: list[tuple[str, object]] = [
     ("Wrap Field Left Div (Note Type)", run_wrap_left_div_for_notetype),
     ("Cleanup <br> Runs (Note Type)", run_cleanup_br_runs_for_notetype),
-    ("Check Square Brackets (Note Type)", run_check_brackets_for_notetype),
-    ("Tag No HTML (Note Type)", run_no_html_check_for_notetype),
-    ("Tag Japanese Characters (Note Type)", run_japanese_char_check_for_notetype),
-    ("Tag Word vs Sentence Cards (Note Type)", run_card_type_check_for_notetype),
-    ("Strip Cloze to Field (Note Type)", run_strip_cloze_for_notetype),
-    ("Replace Cloze Hints (Note Type)", run_replace_cloze_hints_for_notetype),
     ("Unsuspend Heisig by JP Lemmas", run_unsuspend_heisig_by_jp),
     ("Populate Heisig Links from JP", run_heisig_links_by_jp),
 ]
 
-if suspend_duplicates is not None:
-    TOOLS_MENU_ACTIONS.insert(2, ("Suspend Duplicates", run_suspend_duplicates))
+DIAGNOSTICS_TOOLS_MENU_ACTIONS: list[tuple[str, object]] = [
+    ("Check Square Brackets (Note Type)", run_check_brackets_for_notetype),
+    ("Tag No HTML (Note Type)", run_no_html_check_for_notetype),
+    ("Tag Japanese Characters (Note Type)", run_japanese_char_check_for_notetype),
+    ("Tag Word vs Sentence Cards (Note Type)", run_card_type_check_for_notetype),
+]
+
+BROWSER_ADVANCED_ACTIONS: list[tuple[str, object]] = [
+    ("Overwrite Field From Field (Selected)", run_overwrite_field_for_browser),
+]

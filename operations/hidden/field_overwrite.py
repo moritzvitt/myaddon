@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..utils.notes import iter_notes_with_fields
+from ...utils.notes import iter_notes_with_fields
 
 
 def overwrite_field_from_field(

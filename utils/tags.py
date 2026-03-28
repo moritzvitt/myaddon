@@ -5,9 +5,6 @@ CLOZE_FAILED = "meta::cloze_failed"
 CLOZE_NO_STRONG = "meta::cloze_no_strong"
 CLOZE_INCORRECT_PARSE = "meta::incorrect_parsing"
 
-DUPLICATES_MISSING_LEMMA = "meta::duplicates_missing_lemma"
-DUPLICATES_FAILED = "meta::duplicates_failed"
-
 CONTAINS_FURIGANA = "meta::contains_furigana"
 CONTAINS_JAPANESE = "meta::contains_japanese_characters"
 NO_HTML = "meta::no_html"

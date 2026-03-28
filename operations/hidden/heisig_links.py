@@ -6,9 +6,9 @@ import re
 from collections import defaultdict
 from typing import Iterable
 
-from ..utils.cloze import strip_cloze
-from ..utils.html import strip_html
-from ..utils.config import (
+from ...utils.cloze import strip_cloze
+from ...utils.html import strip_html
+from ...utils.config import (
     HEISIG_DECK,
     HEISIG_KANJI_FIELD,
     HEISIG_LINK_FIELD,
@@ -18,7 +18,7 @@ from ..utils.config import (
     JP_LEMMA_FIELD,
     JP_LEARNING_NOTETYPE,
 )
-from ..utils.notes import (
+from ...utils.notes import (
     note_has_active_card_filtered,
     note_has_flag,
     note_has_tag,

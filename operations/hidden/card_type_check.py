@@ -5,10 +5,10 @@ from __future__ import annotations
 import re
 from typing import Iterable
 
-from ..utils.cloze import CLOZE_RE
-from ..utils.html import strip_html, strip_left_div_wrapper
-from ..utils.notes import remove_tag_from_notes
-from ..utils.tags import CARD_TYPE_SENTENCE, CARD_TYPE_WORD
+from ...utils.cloze import CLOZE_RE
+from ...utils.html import strip_html, strip_left_div_wrapper
+from ...utils.notes import remove_tag_from_notes
+from ...utils.tags import CARD_TYPE_SENTENCE, CARD_TYPE_WORD
 
 WHITESPACE_RE = re.compile(r"\s+")
 SENTENCE_PUNCT_RE = re.compile(r"[.!?;:(){}\[\]<>]|[。！？；：]")

@@ -1,15 +1,14 @@
-"""Tag notes whose field contains Japanese characters."""
+"""Check fields for square brackets."""
 
 from __future__ import annotations
 
 from typing import Iterable
 
-from ..utils.cloze import contains_japanese
-from ..utils.notes import remove_tag_from_notes
-from ..utils.tags import CONTAINS_JAPANESE
+from ...utils.tags import CONTAINS_FURIGANA
+from ...utils.notes import remove_tag_from_notes
 
 
-def tag_contains_japanese(
+def check_square_brackets(
     col,
     note_ids: Iterable[int],
     *,
@@ -24,7 +23,7 @@ def tag_contains_japanese(
     skipped_empty = 0
 
     if not dry_run:
-        removed_tag = remove_tag_from_notes(col, note_ids, CONTAINS_JAPANESE)
+        removed_tag = remove_tag_from_notes(col, note_ids, CONTAINS_FURIGANA)
 
     for nid in note_ids:
         note = col.get_note(nid)
@@ -36,10 +35,10 @@ def tag_contains_japanese(
             skipped_empty += 1
             continue
         checked += 1
-        if contains_japanese(value):
+        if "[" in value or "]" in value:
             matched += 1
             if not dry_run:
-                note.add_tag(CONTAINS_JAPANESE)
+                note.add_tag(CONTAINS_FURIGANA)
                 col.update_note(note)
                 added_tag += 1
 

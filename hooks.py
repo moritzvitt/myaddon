@@ -3,11 +3,12 @@ from __future__ import annotations
 import re
 
 from aqt import gui_hooks, mw
+from aqt.qt import QAction, QMenu
 from aqt.utils import tooltip
 
-from .actions import add_browser_menu
+from .actions import BROWSER_ADVANCED_ACTIONS, run_create_cloze_for_browser
 from .addon_config import get_addon_config
-from .operations.field_wrap import wrap_field_in_left_div
+from .operations.hidden.field_wrap import wrap_field_in_left_div
 from .utils.notes import remove_tag_from_notes, tag_notes
 
 LIMIT_RE = re.compile(r"limit:(\d+)", re.IGNORECASE)
@@ -76,12 +77,25 @@ def auto_tag_preview_on_startup() -> None:
 
 def register_browser_hooks() -> None:
     if hasattr(gui_hooks, "browser_menus"):
-        gui_hooks.browser_menus.append(add_browser_menu)
+        gui_hooks.browser_menus.append(_add_browser_menu)
     elif hasattr(gui_hooks, "browser_will_show"):
-        gui_hooks.browser_will_show.append(add_browser_menu)
+        gui_hooks.browser_will_show.append(_add_browser_menu)
     gui_hooks.browser_will_search.append(apply_card_limit)
 
 
 def register_profile_hooks() -> None:
     gui_hooks.profile_did_open.append(lambda: auto_wrap_left_div_on_startup())
     gui_hooks.profile_did_open.append(lambda: auto_tag_preview_on_startup())
+
+
+def _add_browser_menu(browser) -> None:
+    action = QAction("Apply Cloze Pattern (Selected)", browser)
+    action.triggered.connect(lambda: run_create_cloze_for_browser(browser))
+    browser.form.menuEdit.addAction(action)
+
+    advanced_menu = QMenu("Advanced", browser)
+    for label, callback in BROWSER_ADVANCED_ACTIONS:
+        action = QAction(label, browser)
+        action.triggered.connect(lambda _checked=False, cb=callback: cb(browser))
+        advanced_menu.addAction(action)
+    browser.form.menuEdit.addMenu(advanced_menu)

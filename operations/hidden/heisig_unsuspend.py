@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 from typing import Iterable
 
-from ..utils.config import JP_DECK, HEISIG_DECK, HEISIG_KANJI_FIELD
-from ..utils.tags import HEISIG_UNSUSPEND
+from ...utils.config import JP_DECK, HEISIG_DECK, HEISIG_KANJI_FIELD
+from ...utils.tags import HEISIG_UNSUSPEND
 
 KANJI_RE = re.compile(r"[\u4e00-\u9fff]")
 

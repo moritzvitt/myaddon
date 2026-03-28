@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Iterable
 
-from ..utils.html import contains_html, strip_left_div_wrapper
-from ..utils.notes import remove_tag_from_notes
-from ..utils.tags import NO_HTML
+from ...utils.html import contains_html, strip_left_div_wrapper
+from ...utils.notes import remove_tag_from_notes
+from ...utils.tags import NO_HTML
 
 
 def tag_no_html(

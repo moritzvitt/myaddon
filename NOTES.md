@@ -16,21 +16,19 @@ Main Flows (Menu Actions)
 - Replace Cloze Hints (Note Type)
   __init__:_run_replace_cloze_hints_for_notetype -> operations/cloze_hint_replace.py:replace_cloze_hints
 - Wrap Field Left Div (Note Type)
-  __init__:_run_wrap_left_div_for_notetype -> operations/field_wrap.py:wrap_field_in_left_div
+  __init__:_run_wrap_left_div_for_notetype -> operations/hidden/field_wrap.py:wrap_field_in_left_div
 - Cleanup <br> Runs (Note Type)
-  __init__:_run_cleanup_br_runs_for_notetype -> operations/br_cleanup.py:cleanup_br_runs
+  __init__:_run_cleanup_br_runs_for_notetype -> operations/hidden/br_cleanup.py:cleanup_br_runs
 - Check Square Brackets (Note Type)
-  __init__:_run_check_brackets_for_notetype -> operations/bracket_check.py:check_square_brackets
+  __init__:_run_check_brackets_for_notetype -> operations/hidden/bracket_check.py:check_square_brackets
 - Tag No HTML (Note Type)
-  __init__:_run_no_html_check_for_notetype -> operations/no_html_check.py:tag_no_html
+  __init__:_run_no_html_check_for_notetype -> operations/hidden/no_html_check.py:tag_no_html
 - Tag Japanese Characters (Note Type)
-  __init__:_run_japanese_char_check_for_notetype -> operations/japanese_char_check.py:tag_contains_japanese
-- Suspend Duplicates
-  __init__:_run_suspend_duplicates -> operations/duplicates.py:suspend_duplicates
+  __init__:_run_japanese_char_check_for_notetype -> operations/hidden/japanese_char_check.py:tag_contains_japanese
 - Unsuspend Heisig by JP Lemmas
-  __init__:_run_unsuspend_heisig_by_jp -> operations/heisig_unsuspend.py:unsuspend_heisig_by_jp_lemmas
+  __init__:_run_unsuspend_heisig_by_jp -> operations/hidden/heisig_unsuspend.py:unsuspend_heisig_by_jp_lemmas
 - Populate Heisig Links from JP
-  __init__:_run_heisig_links_by_jp -> operations/heisig_links.py:populate_heisig_links_by_jp_lemmas
+  __init__:_run_heisig_links_by_jp -> operations/hidden/heisig_links.py:populate_heisig_links_by_jp_lemmas
 
 Key Behaviors
 - Backups: __init__._maybe_backup() is used before most destructive actions.

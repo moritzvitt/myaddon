@@ -23,8 +23,6 @@ This document audits the current user-facing feature set of the add-on and sorts
 - Replace Cloze Hints (Note Type)
 - Unsuspend Heisig by JP Lemmas
 - Populate Heisig Links from JP
-- Suspend Duplicates
-  Only appears when `operations/duplicates.py` exists.
 
 ### Browser Menu Actions
 
@@ -57,17 +55,17 @@ This document audits the current user-facing feature set of the add-on and sorts
 
 ### Hide
 
+- Wrap Field Left Div (Note Type)
+- Cleanup `<br>` Runs (Note Type)
 - Check Square Brackets (Note Type)
 - Tag No HTML (Note Type)
 - Tag Japanese Characters (Note Type)
 - Tag Word vs Sentence Cards (Note Type)
 - Overwrite Field From Field (Selected)
+- Unsuspend Heisig by JP Lemmas
+- Populate Heisig Links from JP
 - Browser `limit:N` search modifier
 - Auto-wrap `Notes` and `Grammar` fields on profile open
-
-### Delete
-
-- Suspend Duplicates
 
 ## Detailed Recommendations
 
@@ -108,22 +106,6 @@ Why:
 - This is a useful companion utility for cloze workflows.
 - It supports data migration and cleanup without being too domain-specific.
 
-#### Wrap Field Left Div (Note Type)
-
-Recommendation: `keep`
-
-Why:
-- This is a true formatting operation and matches the repo name.
-- It is broad enough to justify inclusion in a formatting utility add-on.
-
-#### Cleanup `<br>` Runs (Note Type)
-
-Recommendation: `keep`
-
-Why:
-- This is another straightforward formatting cleanup operation.
-- It is easy to explain and close in scope to the rest of the formatting tools.
-
 #### Misc Formatting Configuration
 
 Recommendation: `keep`
@@ -132,36 +114,23 @@ Why:
 - If startup behavior remains in this add-on, config belongs here.
 - It is infrastructure, not scope creep by itself.
 
-### Move Out
-
-#### Unsuspend Heisig by JP Lemmas
-
-Recommendation: `move out`
-
-Why:
-- This is highly domain-specific.
-- It depends on a particular Japanese study workflow and deck setup.
-- It does not read like a generic formatting or cloze feature.
-
-#### Populate Heisig Links from JP
-
-Recommendation: `move out`
-
-Why:
-- This is even more specialized than the unsuspend action.
-- It is effectively its own study-automation feature, not a formatting action.
-- It would be much easier to maintain and reason about in a dedicated Heisig/JP helper add-on.
-
-#### Auto-tag Preview Notes On Startup
-
-Recommendation: `move out`
-
-Why:
-- This is workflow automation tied to a specific study process, not formatting.
-- It acts automatically on profile open, which raises the risk and surprise factor.
-- If the Heisig/JP workflows move out, this likely belongs with them or in a separate preview helper.
-
 ### Hide
+
+#### Wrap Field Left Div (Note Type)
+
+Recommendation: `hide`
+
+Why:
+- This is a real formatting operation, but it is no longer part of the cloze-focused top-level story.
+- It still seems useful enough to keep under an advanced menu.
+
+#### Cleanup `<br>` Runs (Note Type)
+
+Recommendation: `hide`
+
+Why:
+- Same reasoning as field wrapping: useful, but not central to cloze creation or maintenance.
+- Better kept in an advanced section than top-level.
 
 #### Check Square Brackets (Note Type)
 
@@ -210,6 +179,23 @@ Why:
 Suggested treatment:
 - Keep it browser-only and move it under an advanced submenu or rename it to sound more clearly like a migration tool.
 
+#### Unsuspend Heisig by JP Lemmas
+
+Recommendation: `hide`
+
+Why:
+- This is highly domain-specific.
+- You asked to keep Heisig features out of the main surface for now without removing them.
+- Hiding it under an advanced area is a reasonable interim compromise.
+
+#### Populate Heisig Links from JP
+
+Recommendation: `hide`
+
+Why:
+- Same as the unsuspend action, but even more specific to one workflow.
+- It should not sit in the main Tools menu if the add-on is being defined around cloze workflows.
+
 #### Browser `limit:N` Search Modifier
 
 Recommendation: `hide`
@@ -232,20 +218,6 @@ Why:
 Suggested treatment:
 - Make it explicitly configurable and consider disabling it by default.
 
-### Delete
-
-#### Suspend Duplicates
-
-Recommendation: `delete`
-
-Why:
-- The implementation is currently missing.
-- The feature is conceptually separate from formatting/cloze work.
-- Missing-code features create mental overhead even when disabled.
-
-Suggested treatment:
-- Delete it from this add-on unless you already know you want it in a dedicated duplicate-management tool.
-
 ## Suggested Product Shape
 
 If you keep this as a single add-on, the cleanest product story would be:
@@ -261,13 +233,11 @@ That suggests this primary scope:
 
 And this secondary scope:
 
-- QA/diagnostic tools, but less visible
+- other formatting utilities and QA/diagnostic tools, but less visible
 
 And this out-of-scope area:
 
-- Heisig-specific study automations
 - deck-specific preview automation
-- duplicate management
 
 ## Suggested Next Step
 
@@ -275,5 +245,4 @@ If you want to simplify without fully splitting the repo yet, the lowest-frictio
 
 1. Keep the `keep` set in the main Tools menu.
 2. Move the `hide` set under an `Advanced` or `Diagnostics` submenu.
-3. Remove the `delete` set.
-4. Open a separate add-on or repo folder later for the `move out` set.
+3. Revisit whether the Heisig and preview automation features should eventually move out.
