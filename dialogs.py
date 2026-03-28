@@ -14,53 +14,6 @@ from aqt.qt import (
 )
 from aqt.utils import showInfo
 
-from .addon_config import get_addon_config, save_addon_config
-
-
-def open_config_dialog() -> None:
-    config = get_addon_config()
-    dialog = QDialog(mw)
-    dialog.setWindowTitle("Misc Formatting Configuration")
-    layout = QFormLayout(dialog)
-    layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
-
-    deck_edit = QLineEdit()
-    deck_edit.setText(str(config.get("deck", "migaku")))
-    layout.addRow("Deck:", deck_edit)
-
-    preview_query_edit = QLineEdit()
-    preview_query_edit.setText(str(config.get("preview_query", "")))
-    layout.addRow("Preview Query:", preview_query_edit)
-
-    preview_tag_edit = QLineEdit()
-    preview_tag_edit.setText(str(config.get("preview_tag", "")))
-    layout.addRow("Preview Tag:", preview_tag_edit)
-
-    preview_limit_edit = QLineEdit()
-    preview_limit_edit.setText(str(config.get("preview_limit", 200)))
-    layout.addRow("Preview Limit:", preview_limit_edit)
-
-    buttons = QDialogButtonBox(
-        QDialogButtonBox.StandardButton.Ok
-        | QDialogButtonBox.StandardButton.Cancel
-    )
-    buttons.accepted.connect(dialog.accept)
-    buttons.rejected.connect(dialog.reject)
-    layout.addRow(buttons)
-
-    if dialog.exec() != QDialog.DialogCode.Accepted:
-        return
-
-    config["deck"] = deck_edit.text().strip() or "migaku"
-    config["preview_query"] = preview_query_edit.text().strip()
-    config["preview_tag"] = preview_tag_edit.text().strip()
-    try:
-        config["preview_limit"] = max(0, int(preview_limit_edit.text().strip() or "0"))
-    except ValueError:
-        config["preview_limit"] = 200
-    save_addon_config(config)
-    showInfo("Configuration saved.")
-
 
 def _deck_names() -> list[str]:
     decks = mw.col.decks.all_names_and_ids()

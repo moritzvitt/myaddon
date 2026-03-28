@@ -11,3 +11,8 @@ The format is based on Keep a Changelog and this project follows semantic versio
 - Starter-repo style repository scaffolding for development, packaging, and release docs.
 - A dedicated `addon.py` module with a minimal `__init__.py` entrypoint.
 - Default config files for deck and preview-tag behavior.
+
+### Changed
+
+- Narrowed the add-on scope to cloze creation and cloze formatting workflows only.
+- Removed unrelated formatting, diagnostics, duplicate-management, and Heisig-specific features.

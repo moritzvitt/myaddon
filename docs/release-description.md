@@ -1,9 +1,9 @@
 # Release Description
 
-Misc Formatting is an Anki utility add-on for batch note cleanup and JP-study maintenance tasks.
+Cloze Formatting is an Anki utility add-on focused on cloze creation and cloze maintenance.
 
 Highlights in this release:
 
-- starter-repo style project scaffolding for easier maintenance
-- a cleaner add-on entrypoint split between `__init__.py` and `addon.py`
-- bundled config and release documentation for future updates
+- tighter product scope around cloze workflows
+- lemma-aware cloze creation for multi-lemma notes
+- cleaner action surface centered on cloze creation, hint replacement, and cloze stripping

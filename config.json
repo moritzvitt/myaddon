@@ -1,6 +1,0 @@
-{
-  "deck": "migaku",
-  "preview_query": "deck:JP -is:suspended -is:buried is:new -flag:3 -flag:2 -flag:4 -flag:1 -flag:6 -tag:marked",
-  "preview_tag": "preview",
-  "preview_limit": 200
-}
