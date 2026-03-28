@@ -1,5 +1,5 @@
 flowchart TD
-    A[Start _apply_cloze_to_note] --> B{Already contains<br/>}
+    A[Start _apply_cloze_to_note] --> B{Already contains<br/>c1 cloze?}
     B -- Yes --> B1[Tag CLOZE_EXISTING<br/>return skipped_no_change]
     B -- No --> C[Count strong tags]
     C --> D{Exactly one<br/><strong>...</strong> block?}

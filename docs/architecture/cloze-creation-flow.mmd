@@ -1,0 +1,40 @@
+flowchart TD
+    A[Start create_cloze<br/>for each note id] --> B{Target / lemma / hint<br/>fields exist?}
+    B -- No --> B1[Increment skipped_missing_field] --> Z
+    B -- Yes --> C[Read Cloze, Lemma,<br/>Word Definition]
+    C --> D{Lemma list empty?}
+    D -- Yes --> D1[Increment skipped_missing_field] --> Z
+    D -- No --> E[Split Lemma by commas]
+    E --> F[Parse Word Definition lines<br/>as lemma: definition]
+    F --> G[Map each lemma to its hint]
+    G --> H{Multiple lemmas<br/>and no MULTI_LEMMA tag?}
+
+    H -- Yes --> I[Mark original note with first lemma<br/>and first matching definition]
+    I --> J[For each extra lemma:<br/>clone note, set lemma + hint]
+    J --> K[Apply cloze logic to each cloned note]
+    K --> L{dry_run?}
+    L -- No --> M[Add cloned notes to collection]
+    L -- Yes --> N[Count results only]
+    M --> O[Apply cloze logic to original note]
+    N --> O
+
+    H -- No --> P{Multiple lemmas<br/>already tagged?}
+    P -- Yes --> Q[Keep first lemma + first matching definition]
+    P -- No --> R[Use single lemma<br/>and matching definition]
+    Q --> O
+    R --> O
+
+    O --> S{Cloze already exists?}
+    S -- Yes --> S1[Tag CLOZE_EXISTING<br/>increment skipped_no_change] --> Y
+    S -- No --> T[Try strong-tag cloze<br/>for matching lemma]
+    T --> U{Updated?}
+    U -- Yes --> Y
+    U -- No --> V[Try longest_substring_match]
+    V --> W{Updated?}
+    W -- Yes --> Y
+    W -- No --> X[Try exact/token/CJK fallback match]
+    X --> X1{Updated?}
+    X1 -- No --> X2[Tag CLOZE_FAILED] --> Y
+    X1 -- Yes --> X3[If CJK fallback used:<br/>tag CLOZE_INCORRECT_PARSE] --> Y
+
+    Y[If update succeeded:<br/>write cloze, maybe tag CLOZE_NO_STRONG,<br/>update counters and save note when not dry_run] --> Z[Next note / end]
