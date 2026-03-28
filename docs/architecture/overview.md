@@ -12,6 +12,10 @@ This add-on is organized around a thin Anki entrypoint, a small registration lay
 - [`operations/`](../../operations) contains focused collection-editing routines.
 - [`utils/`](../../utils) contains shared helpers for cloze matching and cloze-related tags.
 
+## Key Flow
+
+- Cloze creation flow: [`cloze-creation-flow.md`](./cloze-creation-flow.md)
+
 ## Runtime Flow
 
 1. Anki imports the add-on package and executes `register()`.
