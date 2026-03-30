@@ -8,7 +8,9 @@ Mermaid source: [`cloze-creation-flow.mmd`](./cloze-creation-flow.mmd)
 
 ## Notes
 
-- Multi-lemma notes are split before the main cloze application path runs.
+- Existing clozes are skipped before any multi-lemma logic runs.
+- Multi-lemma notes are split in one run and intentionally left unclozed for that pass.
+- After splitting, rerunning `create_cloze()` will process the resulting single-lemma notes.
 - `Word Definition` is interpreted line-by-line using `lemma: definition`.
 - If a lemma does not find a matching `lemma: definition` entry, the full hint text is used as a fallback.
 - Cloze matching prefers:

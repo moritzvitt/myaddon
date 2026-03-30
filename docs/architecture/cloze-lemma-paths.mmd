@@ -5,27 +5,14 @@ flowchart TD
     D --> E{How many lemmas?}
 
     E -- One lemma --> F[Set hint for single lemma]
-    F --> G[Run _apply_cloze_to_note on original note]
+    F --> G[Run _apply_cloze_to_note now]
+    G --> H[Note is processed in this run]
 
-    E -- Multiple lemmas --> H{Has MULTI_LEMMA tag?}
-
-    H -- No --> I[Original note becomes first lemma]
+    E -- Multiple lemmas --> I[Original note becomes first lemma]
     I --> J[Set original note hint to first lemma definition]
     J --> K[Clone one note per extra lemma]
     K --> L[Each clone gets its own lemma + hint]
-    L --> M[Run _apply_cloze_to_note on each clone]
-    M --> N[Run _apply_cloze_to_note on updated original]
-
-    H -- Yes --> O[Do not split again]
-    O --> P[Normalize note to first lemma + first hint]
-    P --> N
-
-    G --> Q[Result]
-    N --> Q
-
-    subgraph Shared Consequence
-        R[Single-lemma and multi-lemma paths both end in the same<br/>_apply_cloze_to_note matching logic]
-    end
-
-    G --> R
-    N --> R
+    L --> M[Do not apply cloze in this run]
+    M --> N[Rerun create_cloze later]
+    N --> O[Each split note now follows<br/>the single-lemma path]
+    O --> G

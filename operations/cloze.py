@@ -19,11 +19,12 @@ from ..utils.tags import (
 STRONG_RE = re.compile(r"<strong>\s*(.*?)\s*</strong>", re.IGNORECASE | re.DOTALL)
 TOKEN_SPLIT_RE = re.compile(r"[^\w\u3040-\u30ff\u4e00-\u9fff]+")
 CJK_CHAR_RE = re.compile(r"[\u4e00-\u9fff]")
+HINT_SPLIT_RE = re.compile(r"(?:<br\s*/?>|\r?\n)+", re.IGNORECASE)
 
 
 def _parse_hint_entries(hint_text: str) -> dict[str, str]:
     entries: dict[str, str] = {}
-    for raw_line in (hint_text or "").splitlines():
+    for raw_line in HINT_SPLIT_RE.split(hint_text or ""):
         line = raw_line.strip()
         if not line or ":" not in line:
             continue
@@ -44,6 +45,41 @@ def _hint_for_lemma(lemma: str, hint_text: str, parsed_hints: dict[str, str]) ->
 def _clone_note_fields(source_note, target_note) -> None:
     for field_name in source_note.keys():
         target_note[field_name] = source_note[field_name]
+
+
+def _split_multi_lemma_note(
+    col,
+    note,
+    *,
+    lemma_field: str,
+    hint_field: str,
+    lemma_hints: list[tuple[str, str]],
+    dry_run: bool,
+) -> int:
+    primary_lemma, primary_hint = lemma_hints[0]
+    created_notes = len(lemma_hints) - 1
+
+    note[lemma_field] = primary_lemma
+    note[hint_field] = primary_hint
+    if not dry_run:
+        note.add_tag(ORIGINAL_MULTI_LEMMA)
+        note.add_tag(MULTI_LEMMA)
+        card_ids = note.card_ids()
+        deck_id = (
+            col.get_card(card_ids[0]).did if card_ids else col.decks.selected()
+        )
+        for extra_lemma, extra_hint in lemma_hints[1:]:
+            new_note = col.new_note(note.model())
+            _clone_note_fields(note, new_note)
+            new_note.tags = list(note.tags)
+            new_note.add_tag(NEW_MULTI_LEMMA)
+            new_note.add_tag(MULTI_LEMMA)
+            new_note[lemma_field] = extra_lemma
+            new_note[hint_field] = extra_hint
+            col.add_note(new_note, deck_id)
+        col.update_note(note)
+
+    return created_notes
 
 
 def _apply_cloze_to_note(
@@ -213,6 +249,15 @@ def create_cloze(
             skipped_missing_field += 1
             continue
 
+        original = note[target_field] or ""
+        if "{{c1::" in original:
+            skipped_no_change += 1
+            if not dry_run:
+                note.add_tag(CLOZE_EXISTING)
+                col.update_note(note)
+            tagged_existing += 1
+            continue
+
         lemma = (note[lemma_field] or "").strip()
         hint = (note[hint_field] or "").strip()
         lemmas = [part.strip() for part in lemma.split(",") if part.strip()]
@@ -226,53 +271,19 @@ def create_cloze(
             for single_lemma in lemmas
         ]
 
-        has_multi_tag = MULTI_LEMMA in note.tags
-        if len(lemmas) > 1 and not has_multi_tag:
-            created_notes += len(lemmas) - 1
-
-        if len(lemmas) > 1 and not has_multi_tag:
-            deferred_multi_lemma += 1
-
-        if len(lemmas) > 1 and not has_multi_tag:
-            primary_lemma, primary_hint = lemma_hints[0]
-            note[lemma_field] = primary_lemma
-            note[hint_field] = primary_hint
-            if not dry_run:
-                note.add_tag(ORIGINAL_MULTI_LEMMA)
-                note.add_tag(MULTI_LEMMA)
-            card_ids = note.card_ids()
-            deck_id = (
-                col.get_card(card_ids[0]).did if card_ids else col.decks.selected()
+        if len(lemmas) > 1:
+            created_notes += _split_multi_lemma_note(
+                col,
+                note,
+                lemma_field=lemma_field,
+                hint_field=hint_field,
+                lemma_hints=lemma_hints,
+                dry_run=dry_run,
             )
-            for extra_lemma, extra_hint in lemma_hints[1:]:
-                new_note = col.new_note(note.model())
-                _clone_note_fields(note, new_note)
-                new_note.tags = list(note.tags)
-                new_note.add_tag(NEW_MULTI_LEMMA)
-                new_note.add_tag(MULTI_LEMMA)
-                new_note[lemma_field] = extra_lemma
-                new_note[hint_field] = extra_hint
-                cloze_counts = _apply_cloze_to_note(
-                    new_note,
-                    target_field=target_field,
-                    lemma_field=lemma_field,
-                    hint_field=hint_field,
-                    dry_run=dry_run,
-                )
-                tagged_no_strong += cloze_counts["tagged_no_strong"]
-                tagged_failed += cloze_counts["tagged_failed"]
-                tagged_existing += cloze_counts["tagged_existing"]
-                updated += cloze_counts["updated"]
-                skipped_no_change += cloze_counts["skipped_no_change"]
-                if not dry_run:
-                    col.add_note(new_note, deck_id)
+            deferred_multi_lemma += 1
+            continue
 
-        elif len(lemmas) > 1 and has_multi_tag:
-            note[lemma_field] = lemma_hints[0][0]
-            note[hint_field] = lemma_hints[0][1]
-
-        else:
-            note[hint_field] = lemma_hints[0][1]
+        note[hint_field] = lemma_hints[0][1]
 
         cloze_counts = _apply_cloze_to_note(
             note,
