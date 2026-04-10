@@ -1,0 +1,7 @@
+site_name: Cloze Formatting
+docs_dir: docs
+
+nav:
+  - Overview: README.md
+  - Architecture Overview: architecture/overview.md
+  - Cloze Creation Flow: architecture/cloze-creation-flow.md

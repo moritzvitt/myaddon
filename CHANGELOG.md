@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project follows semantic versioning where practical.
 
+## Unreleased
+
+### Added
+
+- MkDocs configuration for the shared add-on documentation site so this repo's docs can be included in the combined GitHub Pages build.
+
 ## 0.1.0 - 2026-03-28
 
 ### Added
