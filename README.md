@@ -5,7 +5,7 @@ An Anki add-on focused on cloze creation and cloze maintenance workflows.
 ## Project Layout
 
 ```text
-misc-formatting/
+cloze-formatting/
 ├── __init__.py
 ├── addon.py
 ├── actions.py

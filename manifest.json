@@ -1,6 +1,6 @@
 {
-  "name": "misc-formatting",
-  "human_name": "Misc Formatting",
+  "name": "cloze-formatting",
+  "human_name": "Cloze Formatting",
   "version": "0.1.0",
   "min_anki_version": "2.1.0",
   "mod": 0

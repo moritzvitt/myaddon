@@ -9,6 +9,11 @@ The format is based on Keep a Changelog and this project follows semantic versio
 ### Added
 
 - MkDocs configuration for the shared add-on documentation site so this repo's docs can be included in the combined GitHub Pages build.
+- Tooltips for the add-on dialogs and menu actions so each cloze operation explains its fields and safety options on hover.
+
+### Changed
+
+- Renamed the add-on metadata and README examples from `misc-formatting` to `cloze-formatting`.
 
 ## 0.1.0 - 2026-03-28
 

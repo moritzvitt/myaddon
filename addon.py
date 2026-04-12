@@ -4,6 +4,7 @@ from aqt import mw, qconnect
 from aqt.qt import QAction
 
 from .actions import TOOLS_MENU_ACTIONS
+from .dialogs import _tooltip_for_title
 from .hooks import register_browser_hooks
 
 _REGISTERED = False
@@ -11,6 +12,10 @@ _REGISTERED = False
 
 def _add_tools_action(label: str, callback) -> None:
     action = QAction(label, mw)
+    tooltip = _tooltip_for_title(label)
+    if tooltip:
+        action.setToolTip(tooltip)
+        action.setStatusTip(tooltip)
     qconnect(action.triggered, callback)
     mw.form.menuTools.addAction(action)
 

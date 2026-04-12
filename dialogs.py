@@ -15,6 +15,23 @@ from aqt.qt import (
 from aqt.utils import showInfo
 
 
+FIELD_TOOLTIPS = {
+    "Target Field": "Field to write the generated output into.",
+    "Lemma Field": "Field that contains the lemma or base form used for cloze matching.",
+    "Hint Field": "Field whose text is inserted as the cloze hint or replacement hint.",
+    "Source Field": "Field to read the original cloze text from.",
+}
+
+
+def _tooltip_for_title(title: str) -> str | None:
+    return {
+        "Create Cloze (Query)": "Build cloze text for notes found by the query using the selected fields.",
+        "Strip Cloze to Field (Note Type)": "Remove cloze markup from matching notes and copy the plain text into another field.",
+        "Replace Cloze Hints (Note Type)": "Replace cloze hints on matching notes using the selected hint field.",
+        "Apply Cloze Pattern (Selected)": "Run cloze generation only on the notes currently selected in the Browser.",
+    }.get(title)
+
+
 def _deck_names() -> list[str]:
     decks = mw.col.decks.all_names_and_ids()
     return sorted(d.name for d in decks)
@@ -61,6 +78,9 @@ class RunOptionsDialog(QDialog):
     ) -> None:
         super().__init__(mw)
         self.setWindowTitle(title)
+        title_tooltip = _tooltip_for_title(title)
+        if title_tooltip:
+            self.setToolTip(title_tooltip)
         self._default_query = default_query
         self._default_query_template = default_query_template
         self._query_dirty = False
@@ -74,12 +94,18 @@ class RunOptionsDialog(QDialog):
         if deck_names is not None:
             self.deck_combo = QComboBox()
             self.deck_combo.addItems(deck_names)
+            self.deck_combo.setToolTip(
+                "Limit the run to notes that belong to this deck."
+            )
             layout.addRow("Deck:", self.deck_combo)
 
         self.notetype_combo: QComboBox | None = None
         if notetype_names is not None:
             self.notetype_combo = QComboBox()
             self.notetype_combo.addItems(notetype_names)
+            self.notetype_combo.setToolTip(
+                "Choose the note type whose fields should be used for this operation."
+            )
             if default_notetype and default_notetype in notetype_names:
                 self.notetype_combo.setCurrentIndex(notetype_names.index(default_notetype))
             layout.addRow("Note Type:", self.notetype_combo)
@@ -88,12 +114,21 @@ class RunOptionsDialog(QDialog):
         if field_labels:
             for label in field_labels:
                 combo = QComboBox()
+                combo.setToolTip(
+                    FIELD_TOOLTIPS.get(
+                        label,
+                        f"Choose which note field to use for {label.lower()}.",
+                    )
+                )
                 self.field_combos.append(combo)
                 layout.addRow(f"{label}:", combo)
 
         self.query_edit: QLineEdit | None = None
         if show_query:
             self.query_edit = QLineEdit()
+            self.query_edit.setToolTip(
+                "Search query used to find notes. It updates automatically until you edit it manually."
+            )
             self.query_edit.setMinimumWidth(520)
             self.query_edit.setSizePolicy(
                 QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
@@ -103,6 +138,9 @@ class RunOptionsDialog(QDialog):
         self.deck_filter_edit: QLineEdit | None = None
         if show_deck_filter:
             self.deck_filter_edit = QLineEdit()
+            self.deck_filter_edit.setToolTip(
+                "Optional deck name to append to the generated query."
+            )
             if default_deck_filter:
                 self.deck_filter_edit.setText(default_deck_filter)
             layout.addRow("Deck Filter:", self.deck_filter_edit)
@@ -110,6 +148,9 @@ class RunOptionsDialog(QDialog):
         self.tag_filter_edit: QLineEdit | None = None
         if show_tag_filter:
             self.tag_filter_edit = QLineEdit()
+            self.tag_filter_edit.setToolTip(
+                "Optional tags to append to the generated query. Separate multiple tags with spaces or commas."
+            )
             if default_tag_filter:
                 self.tag_filter_edit.setText(default_tag_filter)
             layout.addRow("Tag Filter:", self.tag_filter_edit)
@@ -118,18 +159,25 @@ class RunOptionsDialog(QDialog):
         if show_dry_run:
             self.dry_run_cb = QCheckBox("Dry run")
             self.dry_run_cb.setChecked(default_dry_run)
+            self.dry_run_cb.setToolTip(
+                "Preview the changes without saving anything to your notes."
+            )
             layout.addRow("", self.dry_run_cb)
 
         self.backup_cb: QCheckBox | None = None
         if show_backup:
             self.backup_cb = QCheckBox("Create backup before running")
             self.backup_cb.setChecked(default_backup)
+            self.backup_cb.setToolTip("Create an Anki backup before writing changes.")
             layout.addRow("", self.backup_cb)
 
         self.overwrite_cb: QCheckBox | None = None
         if show_overwrite:
             self.overwrite_cb = QCheckBox("Overwrite target field")
             self.overwrite_cb.setChecked(default_overwrite)
+            self.overwrite_cb.setToolTip(
+                "Allow existing content in the target field to be replaced."
+            )
             layout.addRow("", self.overwrite_cb)
 
         buttons = QDialogButtonBox(
