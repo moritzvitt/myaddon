@@ -15,6 +15,7 @@ The format is based on Keep a Changelog and this project follows semantic versio
 ### Changed
 
 - Moved the add-on's main-window actions from `Tools` into `Moritz Add-ons -> Cloze Formatting`.
+- Moved the Browser `Apply Cloze Pattern (Selected)` entry into the shared Browser `Moritz Add-ons -> Cloze Formatting` submenu.
 - Renamed the add-on metadata and README examples from `misc-formatting` to `cloze-formatting`.
 
 ## 0.1.0 - 2026-03-28
