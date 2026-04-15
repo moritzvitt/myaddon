@@ -11,11 +11,13 @@ The format is based on Keep a Changelog and this project follows semantic versio
 - MkDocs configuration for the shared add-on documentation site so this repo's docs can be included in the combined GitHub Pages build.
 - Bundled a reusable `shared_menu.py` helper so this add-on can create or reuse the shared `Moritz Add-ons` top-level Anki menu on its own.
 - Tooltips for the add-on dialogs and menu actions so each cloze operation explains its fields and safety options on hover.
+- Added a Cloze Formatting settings dialog with a `green flag synonym mode` option that controls whether green-flagged cards use the first synonym, first two synonyms, or all available synonyms as their cloze hint.
 
 ### Changed
 
 - Moved the add-on's main-window actions from `Tools` into `Moritz Add-ons -> Cloze Formatting`.
 - Moved the Browser `Apply Cloze Pattern (Selected)` entry into the shared Browser `Moritz Add-ons -> Cloze Formatting` submenu.
+- Green-flagged cards can now replace the normal cloze hint with text derived from the note's `Synonyms` field, and the green flag is cleared automatically only when that synonym hint was actually applied successfully.
 - Renamed the add-on metadata and README examples from `misc-formatting` to `cloze-formatting`.
 
 ## 0.1.0 - 2026-03-28

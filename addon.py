@@ -4,7 +4,7 @@ from aqt import mw, qconnect
 from aqt.qt import QAction
 
 from .actions import TOOLS_MENU_ACTIONS
-from .dialogs import _tooltip_for_title
+from .dialogs import _tooltip_for_title, open_settings_dialog
 from .hooks import register_browser_hooks
 from . import shared_menu
 
@@ -25,6 +25,8 @@ def _add_tools_action(label: str, callback) -> None:
 def _register_tools_menu() -> None:
     for label, callback in TOOLS_MENU_ACTIONS:
         _add_tools_action(label, callback)
+    shared_menu.add_separator_to_addon_menu(ADDON_MENU_NAME)
+    _add_tools_action("Settings", open_settings_dialog)
 
 
 def register() -> None:

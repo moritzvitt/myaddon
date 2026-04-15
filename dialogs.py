@@ -14,6 +14,13 @@ from aqt.qt import (
 )
 from aqt.utils import showInfo
 
+from .config import (
+    GREEN_FLAG_SYNONYM_MODE_KEY,
+    SYNONYM_MODE_LABELS,
+    load_config,
+    save_config,
+)
+
 
 FIELD_TOOLTIPS = {
     "Target Field": "Field to write the generated output into.",
@@ -29,6 +36,7 @@ def _tooltip_for_title(title: str) -> str | None:
         "Strip Cloze to Field (Note Type)": "Remove cloze markup from matching notes and copy the plain text into another field.",
         "Replace Cloze Hints (Note Type)": "Replace cloze hints on matching notes using the selected hint field.",
         "Apply Cloze Pattern (Selected)": "Run cloze generation only on the notes currently selected in the Browser.",
+        "Settings": "Configure optional Cloze Formatting behavior such as green-flag synonym hints.",
     }.get(title)
 
 
@@ -370,3 +378,55 @@ def select_run_options(
             return None
         values["query"] = query
     return values
+
+
+class SettingsDialog(QDialog):
+    def __init__(self) -> None:
+        super().__init__(mw)
+        self.setWindowTitle("Cloze Formatting Settings")
+        tooltip = _tooltip_for_title("Settings")
+        if tooltip:
+            self.setToolTip(tooltip)
+
+        config = load_config()
+
+        layout = QFormLayout(self)
+        layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+
+        self.synonym_mode_combo = QComboBox()
+        for mode, label in SYNONYM_MODE_LABELS.items():
+            self.synonym_mode_combo.addItem(label, mode)
+        self.synonym_mode_combo.setCurrentIndex(
+            max(
+                0,
+                self.synonym_mode_combo.findData(config[GREEN_FLAG_SYNONYM_MODE_KEY]),
+            )
+        )
+        self.synonym_mode_combo.setToolTip(
+            "When a card has the green flag, use the Synonyms field as the cloze hint and choose how many synonym items are kept."
+        )
+        layout.addRow("Green flag synonym mode:", self.synonym_mode_combo)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save
+            | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addRow(buttons)
+
+    def accept(self) -> None:
+        save_config(
+            {
+                GREEN_FLAG_SYNONYM_MODE_KEY: str(
+                    self.synonym_mode_combo.currentData()
+                    or self.synonym_mode_combo.currentText()
+                ),
+            }
+        )
+        showInfo("Cloze Formatting settings saved.", parent=self)
+        super().accept()
+
+
+def open_settings_dialog() -> None:
+    SettingsDialog().exec()
