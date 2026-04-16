@@ -1,3 +1,4 @@
 {
-  "green_flag_synonym_mode": "first_two"
+  "green_flag_synonym_mode": "first_two",
+  "run_startup_green_flag_replacement": false
 }

@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from aqt import mw, qconnect
+from aqt import gui_hooks, mw, qconnect
 from aqt.qt import QAction
 
-from .actions import TOOLS_MENU_ACTIONS
+from .actions import TOOLS_MENU_ACTIONS, run_startup_green_flag_replacement
 from .dialogs import _tooltip_for_title, open_settings_dialog
 from .hooks import register_browser_hooks
 from . import shared_menu
 
 _REGISTERED = False
+_STARTUP_HOOK_REGISTERED = False
+_STARTUP_TASK_RAN = False
 ADDON_MENU_NAME = "Cloze Formatting"
 
 
@@ -29,6 +31,27 @@ def _register_tools_menu() -> None:
     _add_tools_action("Settings", open_settings_dialog)
 
 
+def _run_startup_tasks(*_args) -> None:
+    global _STARTUP_TASK_RAN
+    if _STARTUP_TASK_RAN:
+        return
+    if mw is None or getattr(mw, "col", None) is None:
+        return
+    _STARTUP_TASK_RAN = True
+    run_startup_green_flag_replacement()
+
+
+def _register_startup_hook() -> None:
+    global _STARTUP_HOOK_REGISTERED
+    if _STARTUP_HOOK_REGISTERED:
+        return
+    if hasattr(gui_hooks, "profile_did_open"):
+        gui_hooks.profile_did_open.append(_run_startup_tasks)
+    elif hasattr(gui_hooks, "main_window_did_init"):
+        gui_hooks.main_window_did_init.append(_run_startup_tasks)
+    _STARTUP_HOOK_REGISTERED = True
+
+
 def register() -> None:
     global _REGISTERED
 
@@ -37,4 +60,5 @@ def register() -> None:
 
     _register_tools_menu()
     register_browser_hooks()
+    _register_startup_hook()
     _REGISTERED = True

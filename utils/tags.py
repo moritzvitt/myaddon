@@ -8,3 +8,5 @@ CLOZE_INCORRECT_PARSE = "meta::incorrect_parsing"
 ORIGINAL_MULTI_LEMMA = "meta::original_multi_lemma"
 NEW_MULTI_LEMMA = "meta::new_multi_lemma"
 MULTI_LEMMA = "meta::multi_lemma"
+
+STARTUP_REPLACE_HINTS_WITH_SYNONYMS = "!meta::replace_hints_with_synonyms"

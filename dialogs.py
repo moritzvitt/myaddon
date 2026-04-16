@@ -9,13 +9,18 @@ from aqt.qt import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QHBoxLayout,
     QLineEdit,
+    QMessageBox,
     QSizePolicy,
+    QToolButton,
+    QWidget,
 )
 from aqt.utils import showInfo
 
 from .config import (
     GREEN_FLAG_SYNONYM_MODE_KEY,
+    RUN_STARTUP_GREEN_FLAG_REPLACEMENT_KEY,
     SYNONYM_MODE_LABELS,
     load_config,
     save_config,
@@ -23,26 +28,62 @@ from .config import (
 
 
 FIELD_TOOLTIPS = {
-    "Target Field": "Field to write the generated output into.",
-    "Lemma Field": "Field that contains the lemma or base form used for cloze matching.",
-    "Hint Field": "Field whose text is inserted as the cloze hint or replacement hint.",
-    "Source Field": "Field to read the original cloze text from.",
+    "Target Field": "This field will be written by the action. Choose the field where you want the final cloze or plain-text result to end up.",
+    "Lemma Field": "This field provides the lemma or base form used for matching against the sentence content.",
+    "Hint Field": "This field provides the hint text that will appear inside the cloze, such as `Word Definition` or `Synonyms`.",
+    "Source Field": "This field is read as the input source when stripping cloze markup into another field.",
+}
+
+CONTROL_TOOLTIPS = {
+    "Deck": "Limits the action to notes whose cards belong to this deck.",
+    "Note Type": "Chooses which note type the selected fields should come from.",
+    "Query": "Search string used to find notes for this batch action. It starts from the dialog defaults until you edit it.",
+    "Deck Filter": "Extra deck restriction appended to the generated query.",
+    "Tag Filter": "Extra tag terms appended to the generated query, such as exclusions for already-processed notes.",
+    "Green flag synonym mode": "Controls whether a green-flagged card uses the first synonym, first two synonyms, or all synonyms as hint text.",
+    "Run startup green-flag replacement": "Runs the green-flag synonym replacement automatically when Anki starts, then clears the processed green flags.",
+}
+
+OPTION_TOOLTIPS = {
+    "Dry run": "Shows what would be changed without writing anything to your notes.",
+    "Create backup before running": "Creates an Anki backup before the action writes any note changes.",
+    "Overwrite target field": "Allows existing content in the target field to be replaced.",
+}
+
+MENU_INFO_TEXTS = {
+    "Create Cloze (Query)": "Use this menu when you want to batch-create clozes from a search query. The query can target a current deck, green-flagged cards, or a filtered backlog, while the field selectors decide where the addon reads lemmas and writes the finished cloze.",
+    "Strip Cloze to Field (Note Type)": "Use this when you want a plain-text version of cloze content in another field. It reads existing cloze text from the source field and writes stripped output into the target field.",
+    "Replace Cloze Hints (Note Type)": "Use this to refresh hint text in bulk for all notes matching a query. Pick the field that should become the new cloze hint, such as `Word Definition` or `Synonyms`.",
+    "Replace Cloze Hints (Selected)": "Use this for a hand-picked set of notes in the Browser. It only touches the notes you selected, which makes it a safer way to test synonym-based hint replacement before running a wider batch.",
+    "Apply Cloze Pattern (Selected)": "This looks for the lemma from the configured lemma field inside the sentence in the target field and wraps the matched word with Anki's cloze structure. The matched lemma becomes the hidden word, and the configured hint field, such as `Word Definition`, becomes the cloze hint.",
+    "Settings": "This menu controls addon-wide behavior rather than one batch run. You can define how green-flag synonym hints behave and whether flagged cards should be processed automatically when Anki starts.",
 }
 
 
 def _tooltip_for_title(title: str) -> str | None:
     return {
-        "Create Cloze (Query)": "Build cloze text for notes found by the query using the selected fields.",
-        "Strip Cloze to Field (Note Type)": "Remove cloze markup from matching notes and copy the plain text into another field.",
-        "Replace Cloze Hints (Note Type)": "Replace cloze hints on matching notes using the selected hint field.",
-        "Apply Cloze Pattern (Selected)": "Run cloze generation only on the notes currently selected in the Browser.",
-        "Settings": "Configure optional Cloze Formatting behavior such as green-flag synonym hints.",
+        "Create Cloze (Query)": "Batch-process notes from a search query. This is the fastest way to work through a current deck or green-flagged backlog.",
+        "Strip Cloze to Field (Note Type)": "Create a plain-text companion field from existing clozes. Useful for exports, comparisons, or fallback study views.",
+        "Replace Cloze Hints (Note Type)": "Refresh hint text in bulk when your support field has improved and you want clozes to reflect it.",
+        "Replace Cloze Hints (Selected)": "Replace cloze hints only on the notes you selected in the Browser. Useful for switching a small hand-picked set over to synonym-based hints.",
+        "Apply Cloze Pattern (Selected)": "Run cloze generation only on the notes you picked in the Browser. Useful for careful spot-fixes before rolling changes out more widely.",
+        "Settings": "Configure optional Cloze Formatting behavior. This is where the green-flag synonym workflow becomes predictable and repeatable.",
     }.get(title)
 
 
 def _deck_names() -> list[str]:
     decks = mw.col.decks.all_names_and_ids()
     return sorted(d.name for d in decks)
+
+
+def _current_deck_name() -> str | None:
+    current = mw.col.decks.current()
+    if hasattr(current, "name"):
+        return str(current.name)
+    if isinstance(current, dict):
+        name = current.get("name")
+        return str(name) if name else None
+    return None
 
 
 def _notetype_names() -> list[str]:
@@ -57,6 +98,42 @@ def _field_names_for_notetype(notetype_name: str) -> list[str]:
     if not model:
         return []
     return [f["name"] for f in model.get("flds", [])]
+
+
+def _query_term_for_tag_filter(tag: str) -> str:
+    cleaned = tag.strip()
+    if not cleaned:
+        return ""
+    if ":" in cleaned:
+        return cleaned
+    if cleaned.startswith("-"):
+        return f"-tag:{cleaned[1:]}"
+    return f"tag:{cleaned}"
+
+
+def _show_info_popup(parent: QWidget, title: str, text: str) -> None:
+    QMessageBox.information(parent, title, text)
+
+
+def _make_menu_info_row(parent: QWidget, title: str) -> QWidget | None:
+    info_text = MENU_INFO_TEXTS.get(title)
+    if not info_text:
+        return None
+
+    container = QWidget(parent)
+    layout = QHBoxLayout(container)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(6)
+    button = QToolButton(container)
+    button.setText("What is this useful for?")
+    button.clicked.connect(
+        lambda _checked=False, popup_title=title, popup_text=info_text: _show_info_popup(
+            parent, popup_title, popup_text
+        )
+    )
+    layout.addWidget(button)
+    layout.addStretch(1)
+    return container
 
 
 class RunOptionsDialog(QDialog):
@@ -74,6 +151,7 @@ class RunOptionsDialog(QDialog):
         show_tag_filter: bool = False,
         default_deck_filter: str | None = None,
         default_tag_filter: str | None = None,
+        default_deck: str | None = None,
         use_deck_combo_in_query: bool = False,
         show_dry_run: bool = False,
         default_dry_run: bool = False,
@@ -97,23 +175,24 @@ class RunOptionsDialog(QDialog):
 
         layout = QFormLayout(self)
         layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        info_row = _make_menu_info_row(self, title)
+        if info_row is not None:
+            layout.addRow("", info_row)
 
         self.deck_combo: QComboBox | None = None
         if deck_names is not None:
             self.deck_combo = QComboBox()
             self.deck_combo.addItems(deck_names)
-            self.deck_combo.setToolTip(
-                "Limit the run to notes that belong to this deck."
-            )
+            self.deck_combo.setToolTip(CONTROL_TOOLTIPS["Deck"])
+            if default_deck and default_deck in deck_names:
+                self.deck_combo.setCurrentIndex(deck_names.index(default_deck))
             layout.addRow("Deck:", self.deck_combo)
 
         self.notetype_combo: QComboBox | None = None
         if notetype_names is not None:
             self.notetype_combo = QComboBox()
             self.notetype_combo.addItems(notetype_names)
-            self.notetype_combo.setToolTip(
-                "Choose the note type whose fields should be used for this operation."
-            )
+            self.notetype_combo.setToolTip(CONTROL_TOOLTIPS["Note Type"])
             if default_notetype and default_notetype in notetype_names:
                 self.notetype_combo.setCurrentIndex(notetype_names.index(default_notetype))
             layout.addRow("Note Type:", self.notetype_combo)
@@ -134,9 +213,7 @@ class RunOptionsDialog(QDialog):
         self.query_edit: QLineEdit | None = None
         if show_query:
             self.query_edit = QLineEdit()
-            self.query_edit.setToolTip(
-                "Search query used to find notes. It updates automatically until you edit it manually."
-            )
+            self.query_edit.setToolTip(CONTROL_TOOLTIPS["Query"])
             self.query_edit.setMinimumWidth(520)
             self.query_edit.setSizePolicy(
                 QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
@@ -146,9 +223,7 @@ class RunOptionsDialog(QDialog):
         self.deck_filter_edit: QLineEdit | None = None
         if show_deck_filter:
             self.deck_filter_edit = QLineEdit()
-            self.deck_filter_edit.setToolTip(
-                "Optional deck name to append to the generated query."
-            )
+            self.deck_filter_edit.setToolTip(CONTROL_TOOLTIPS["Deck Filter"])
             if default_deck_filter:
                 self.deck_filter_edit.setText(default_deck_filter)
             layout.addRow("Deck Filter:", self.deck_filter_edit)
@@ -156,9 +231,7 @@ class RunOptionsDialog(QDialog):
         self.tag_filter_edit: QLineEdit | None = None
         if show_tag_filter:
             self.tag_filter_edit = QLineEdit()
-            self.tag_filter_edit.setToolTip(
-                "Optional tags to append to the generated query. Separate multiple tags with spaces or commas."
-            )
+            self.tag_filter_edit.setToolTip(CONTROL_TOOLTIPS["Tag Filter"])
             if default_tag_filter:
                 self.tag_filter_edit.setText(default_tag_filter)
             layout.addRow("Tag Filter:", self.tag_filter_edit)
@@ -167,25 +240,21 @@ class RunOptionsDialog(QDialog):
         if show_dry_run:
             self.dry_run_cb = QCheckBox("Dry run")
             self.dry_run_cb.setChecked(default_dry_run)
-            self.dry_run_cb.setToolTip(
-                "Preview the changes without saving anything to your notes."
-            )
+            self.dry_run_cb.setToolTip(OPTION_TOOLTIPS["Dry run"])
             layout.addRow("", self.dry_run_cb)
 
         self.backup_cb: QCheckBox | None = None
         if show_backup:
             self.backup_cb = QCheckBox("Create backup before running")
             self.backup_cb.setChecked(default_backup)
-            self.backup_cb.setToolTip("Create an Anki backup before writing changes.")
+            self.backup_cb.setToolTip(OPTION_TOOLTIPS["Create backup before running"])
             layout.addRow("", self.backup_cb)
 
         self.overwrite_cb: QCheckBox | None = None
         if show_overwrite:
             self.overwrite_cb = QCheckBox("Overwrite target field")
             self.overwrite_cb.setChecked(default_overwrite)
-            self.overwrite_cb.setToolTip(
-                "Allow existing content in the target field to be replaced."
-            )
+            self.overwrite_cb.setToolTip(OPTION_TOOLTIPS["Overwrite target field"])
             layout.addRow("", self.overwrite_cb)
 
         buttons = QDialogButtonBox(
@@ -251,7 +320,11 @@ class RunOptionsDialog(QDialog):
             parts.append(f'deck:"{deck_combo_value}"')
         if tag_filter:
             tags = [tag for tag in re.split(r"[,\s]+", tag_filter) if tag]
-            parts.extend(f"tag:{tag}" for tag in tags)
+            parts.extend(
+                query_term
+                for tag in tags
+                if (query_term := _query_term_for_tag_filter(tag))
+            )
         return " ".join(part for part in parts if part).strip()
 
     def _maybe_update_query(self, notetype: str) -> None:
@@ -310,6 +383,7 @@ def select_run_options(
     show_tag_filter: bool = False,
     default_deck_filter: str | None = None,
     default_tag_filter: str | None = None,
+    default_deck: str | None = None,
     use_deck_combo_in_query: bool = False,
     show_dry_run: bool = False,
     default_dry_run: bool = False,
@@ -342,6 +416,7 @@ def select_run_options(
         show_tag_filter=show_tag_filter,
         default_deck_filter=default_deck_filter,
         default_tag_filter=default_tag_filter,
+        default_deck=default_deck,
         use_deck_combo_in_query=use_deck_combo_in_query,
         show_dry_run=show_dry_run,
         default_dry_run=default_dry_run,
@@ -392,6 +467,9 @@ class SettingsDialog(QDialog):
 
         layout = QFormLayout(self)
         layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        info_row = _make_menu_info_row(self, "Settings")
+        if info_row is not None:
+            layout.addRow("", info_row)
 
         self.synonym_mode_combo = QComboBox()
         for mode, label in SYNONYM_MODE_LABELS.items():
@@ -403,9 +481,20 @@ class SettingsDialog(QDialog):
             )
         )
         self.synonym_mode_combo.setToolTip(
-            "When a card has the green flag, use the Synonyms field as the cloze hint and choose how many synonym items are kept."
+            CONTROL_TOOLTIPS["Green flag synonym mode"]
         )
         layout.addRow("Green flag synonym mode:", self.synonym_mode_combo)
+
+        self.run_startup_green_flag_cb = QCheckBox(
+            "Run green-flag synonym replacement on startup"
+        )
+        self.run_startup_green_flag_cb.setChecked(
+            bool(config[RUN_STARTUP_GREEN_FLAG_REPLACEMENT_KEY])
+        )
+        self.run_startup_green_flag_cb.setToolTip(
+            CONTROL_TOOLTIPS["Run startup green-flag replacement"]
+        )
+        layout.addRow("", self.run_startup_green_flag_cb)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save
@@ -421,6 +510,9 @@ class SettingsDialog(QDialog):
                 GREEN_FLAG_SYNONYM_MODE_KEY: str(
                     self.synonym_mode_combo.currentData()
                     or self.synonym_mode_combo.currentText()
+                ),
+                RUN_STARTUP_GREEN_FLAG_REPLACEMENT_KEY: bool(
+                    self.run_startup_green_flag_cb.isChecked()
                 ),
             }
         )
