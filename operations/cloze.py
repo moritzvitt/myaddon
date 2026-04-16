@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from html import unescape
 import re
 from typing import Iterable
 
@@ -12,6 +11,7 @@ from ..config import (
     load_config,
 )
 from ..utils.cloze import longest_substring_match
+from ..utils.synonyms import synonym_hint
 from ..utils.tags import (
     CLOZE_EXISTING,
     CLOZE_FAILED,
@@ -26,9 +26,6 @@ STRONG_RE = re.compile(r"<strong>\s*(.*?)\s*</strong>", re.IGNORECASE | re.DOTAL
 TOKEN_SPLIT_RE = re.compile(r"[^\w\u3040-\u30ff\u4e00-\u9fff]+")
 CJK_CHAR_RE = re.compile(r"[\u4e00-\u9fff]")
 HINT_SPLIT_RE = re.compile(r"(?:<br\s*/?>|\r?\n)+", re.IGNORECASE)
-LIST_ITEM_RE = re.compile(r"<li\b[^>]*>(.*?)</li>", re.IGNORECASE | re.DOTALL)
-HTML_TAG_RE = re.compile(r"<[^>]+>")
-WHITESPACE_RE = re.compile(r"\s+")
 GREEN_FLAG = 3
 
 
@@ -52,47 +49,14 @@ def _hint_for_lemma(lemma: str, hint_text: str, parsed_hints: dict[str, str]) ->
     return parsed_hints.get(lemma.casefold(), (hint_text or "").strip())
 
 
-def _clean_synonym_text(value: str) -> str:
-    stripped = HTML_TAG_RE.sub(" ", value)
-    return WHITESPACE_RE.sub(" ", stripped).strip(" ,;:-")
-
-
-def _synonym_items(raw_value: str) -> list[str]:
-    if not raw_value:
-        return []
-
-    decoded = unescape(raw_value)
-    items = [_clean_synonym_text(match) for match in LIST_ITEM_RE.findall(decoded)]
-    items = [item for item in items if item]
-    if items:
-        return items
-
-    fallback = decoded
-    for needle in ("<br>", "<br/>", "<br />", "</li>", "</ul>", "</ol>", "</p>"):
-        fallback = fallback.replace(needle, "\n")
-    fallback = fallback.replace("<li>", "")
-    fallback = fallback.replace("<ul>", "")
-    fallback = fallback.replace("<ol>", "")
-    fallback = fallback.replace("<p>", "")
-    lines = [_clean_synonym_text(line) for line in fallback.splitlines()]
-    return [line for line in lines if line]
-
-
 def _selected_synonym_hint(raw_value: str, mode: str) -> str | None:
-    items = _synonym_items(raw_value)
-    if not items:
-        return None
-
     if mode == GREEN_FLAG_SYNONYM_MODE_FIRST:
-        selected = items[:1]
+        limit = 1
     elif mode == GREEN_FLAG_SYNONYM_MODE_FIRST_TWO:
-        selected = items[:2]
+        limit = 2
     else:
-        selected = items
-    selected = [item for item in selected if item]
-    if not selected:
-        return None
-    return ", ".join(selected)
+        limit = None
+    return synonym_hint(raw_value, limit=limit)
 
 
 def _green_flagged_card_ids(col, note) -> list[int]:
