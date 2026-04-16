@@ -1,0 +1,16 @@
+{
+  "title": "Cloze Formatting",
+  "ankiweb_id": null,
+  "github_url": "https://github.com/moritzvitt/myaddon",
+  "support_url": "https://github.com/moritzvitt/myaddon/issues",
+  "description_source": "docs/ankiweb-product-page-short.md",
+  "artifact_patterns": [
+    "cloze-formatting.ankiaddon",
+    "build/*.ankiaddon"
+  ],
+  "build_command": [
+    "bash",
+    "-lc",
+    "repo_name=${PWD##*/}; rm -f ./$repo_name.ankiaddon; zip -r ./$repo_name.ankiaddon . -x './.git/*' './.vscode/*' './.venv/*' './__pycache__/*' './*/__pycache__/*' './.DS_Store' './*.ankiaddon' './*.code-workspace'"
+  ]
+}

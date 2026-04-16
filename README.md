@@ -1,5 +1,14 @@
 # Cloze Formatting
 
+<p align="center">
+  <a href="https://buymeacoffee.com/moritzowitsch">
+    <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=000000" alt="Buy Me a Coffee" />
+  </a>
+  <a href="https://github.com/moritzvitt">
+    <img src="https://img.shields.io/badge/GitHub-moritzvitt-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub moritzvitt" />
+  </a>
+</p>
+
 An Anki add-on focused on cloze creation and cloze maintenance workflows.
 
 ## Project Layout

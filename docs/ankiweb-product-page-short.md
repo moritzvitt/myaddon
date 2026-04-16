@@ -1,6 +1,17 @@
 # Cloze Formatting
 
+<p align="center">
+  <a href="https://buymeacoffee.com/moritzowitsch">
+    <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=000000" alt="Buy Me a Coffee" />
+  </a>
+  <a href="https://github.com/moritzvitt">
+    <img src="https://img.shields.io/badge/GitHub-moritzvitt-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub moritzvitt" />
+  </a>
+</p>
+
 This add-on is built for a workflow where you export sentence cards from Migaku into Anki, but the exported sentence does not yet contain the Anki cloze markup.
+
+If you want a more polished and consistent look across my add-ons, you can also install my `Global Styling` add-on. It lets you apply a shared design on top of supported add-ons without changing their functionality.
 
 In that setup, you often have the target word in one field and the sentence in another field, and you need to combine both pieces to generate the actual cloze card. This add-on does that automatically: it looks for the lemma or target word inside the sentence and wraps the match in Anki's cloze syntax. The selected hint field becomes the cloze hint, so you do not have to build clozes by hand after every export.
 
@@ -19,10 +30,5 @@ Available options include:
 - Browser actions for selected-note cloze generation
 - Browser actions for selected-note cloze hint replacement
 - bulk replacement of cloze hints from another field such as `Word Definition` or `Synonyms`
-- green-flag workflow to gradually switch cards from translation-based hints to synonym-based hints
-- configurable synonym mode using the first synonym, first two synonyms, or all available synonyms
-- startup automation for processing green-flagged cards and clearing their flags after successful replacement
-- cloze stripping into a plain-text target field
-- configuration dialogs under `Moritz Add-ons`
 
 This is useful if you import a lot of content from Migaku, want a faster path from exported sentence card to finished cloze card, and want a few extra maintenance tools for adjusting hints and cleaning up cloze fields afterward.
