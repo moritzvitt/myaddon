@@ -25,6 +25,7 @@ from .config import (
     load_config,
     save_config,
 )
+from . import shared_styling
 
 
 FIELD_TOOLTIPS = {
@@ -287,6 +288,7 @@ class RunOptionsDialog(QDialog):
         self._refresh_fields(self.notetype_combo.currentText() if self.notetype_combo else "")
         if self.query_edit is not None:
             self._initialize_query()
+        shared_styling.apply_dialog_theme(self)
 
     def _mark_query_dirty(self) -> None:
         self._query_dirty = True
@@ -503,6 +505,7 @@ class SettingsDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
+        shared_styling.apply_dialog_theme(self)
 
     def accept(self) -> None:
         save_config(
